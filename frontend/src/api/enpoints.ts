@@ -1,0 +1,32 @@
+import api from './client'
+
+// Radar
+export const runRadar    = (portfolio: string[]) =>
+  api.post('/radar/run', { portfolio })
+
+export const getRadarStatus = (jobId: string) =>
+  api.get(`/radar/status/${jobId}`)
+
+export const getLatestSignals = () =>
+  api.get('/radar/latest')
+
+// Stocks
+export const getOHLC     = (symbol: string, days = 90) =>
+  api.get(`/stocks/${symbol}/ohlc?days=${days}`)
+
+export const getStockInfo = (symbol: string) =>
+  api.get(`/stocks/${symbol}/info`)
+
+export const explainSignal = (symbol: string) =>
+  api.get(`/stocks/${symbol}/explain`)
+
+// Portfolio
+export const savePortfolio = (sessionId: string, holdings: any[]) =>
+  api.post('/portfolio/save', { session_id: sessionId, holdings })
+
+export const getPortfolio = (sessionId: string) =>
+  api.get(`/portfolio/${sessionId}`)
+
+// Chat
+export const askChat = (question: string, portfolio: string[]) =>
+  api.post('/chat/ask', { question, portfolio })
