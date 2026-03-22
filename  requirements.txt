@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+yfinance
+pandas-ta
+scipy
+requests
+python-dotenv
+google-generativeai
+pydantic
+sqlalchemy
+aiofiles
+feedparser
