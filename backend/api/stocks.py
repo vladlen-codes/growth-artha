@@ -1,3 +1,5 @@
+import yfinance as yf
+from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from backend.data.fetcher import fetch_ohlc, fetch_stock_info
 
@@ -43,3 +45,20 @@ def explain_signal(symbol: str):
 def get_sentiment(symbol: str, force_refresh: bool = False):
     from backend.signals.sentiment import get_stock_sentiment
     return get_stock_sentiment(symbol.upper(), force_refresh)
+
+@router.get("/{symbol}/price")
+def get_live_price(symbol: str):
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(f"{symbol}.NS")
+        info = ticker.fast_info
+        return {
+            "symbol":       symbol,
+            "price":        round(info.last_price, 2),
+            "prev_close":   round(info.previous_close, 2),
+            "change_pct":   round((info.last_price - info.previous_close) / info.previous_close * 100, 2),
+            "updated_at":   datetime.now().isoformat(),
+            "delay_notice": "15-min delayed"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Price unavailable: {e}")
