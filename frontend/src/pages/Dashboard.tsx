@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useRadarStore } from '../store/radarStore'
 import { usePortfolioStore } from '../store/portfolioStore'
 import { useNotifications } from '../hooks/useNotifications'
-import { runRadar, getRadarStatus } from '../api/endpoints'
+import { runRadar, getRadarStatus } from '../api/enpoints'
 import PortfolioInput from '../components/PortfolioInput'
 import RadarBucket from '../components/RadarBucket'
 import RunRadarButton from '../components/RunRadarButton'
 import StatsBar from '../components/StatsBar'
+import AuditTrail from '../components/AuditTrail'
 
 interface Props {
   onSelectStock: (symbol: string) => void
@@ -123,6 +124,11 @@ export default function Dashboard({ onSelectStock }: Props) {
             onSelect={onSelectStock}
           />
         </div>
+      )}
+
+      {/* Audit trail — agent reasoning log */}
+      {status === 'done' && jobId && (
+        <AuditTrail jobId={jobId} />
       )}
 
       {/* Empty state */}

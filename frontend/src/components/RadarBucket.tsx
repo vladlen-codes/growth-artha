@@ -5,10 +5,10 @@ interface Signal {
   score: number
   tags: string[]
   ai_card: string | null
-  portfolio_tag: string
-  last_price: number
-  price_change_pct: number
-  signal_count: number
+  portfolio_tag?: string
+  last_price?: number
+  price_change_pct?: number
+  signal_count?: number
 }
 
 interface Props {
