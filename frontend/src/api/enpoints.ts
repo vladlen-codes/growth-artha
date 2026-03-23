@@ -30,3 +30,12 @@ export const getPortfolio = (sessionId: string) =>
 // Chat
 export const askChat = (question: string, portfolio: string[]) =>
   api.post('/chat/ask', { question, portfolio })
+
+// Call this on app load to warm the cache for demo stocks
+export const prewarmDemoStocks = async (symbols: string[]) => {
+  // Fire and forget — don't await
+  symbols.forEach(sym => {
+    getOHLC(sym, 180).catch(() => {})
+    getStockInfo(sym).catch(() => {})
+  })
+}

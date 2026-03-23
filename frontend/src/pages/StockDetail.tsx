@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getStockInfo, explainSignal } from '../api/endpoints'
+import { getStockInfo, explainSignal } from '../api/enpoints'
 import { useLivePrice } from '../hooks/useLivePrice'
 import CandlestickChart from '../components/CandlestickChart'
 import SentimentCard from '../components/SentimentCard'
 import SignalExplainer from '../components/SignalExplainer'
-import PatternList from '../components/PatternList'
 import { useRadarStore } from '../store/radarStore'
 
 interface Props {

@@ -146,7 +146,7 @@ export default function SentimentCard({ symbol }: Props) {
           </p>
           <div className="space-y-2">
             {data.headlines.map((h: any, i: number) => (
-              
+              <a
                 key={i}
                 href={h.url}
                 target="_blank"

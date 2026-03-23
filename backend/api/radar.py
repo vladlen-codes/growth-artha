@@ -1,11 +1,29 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 import uuid
 import asyncio
+import numpy as np
 
 router = APIRouter()
+
+
+def _sanitize(obj):
+    """Recursively convert numpy scalars/arrays to native Python types."""
+    if isinstance(obj, dict):
+        return {k: _sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize(i) for i in obj]
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    return obj
+
 
 # In-memory job store — fine for hackathon
 # Replace with SQLite if you need persistence across restarts
@@ -45,54 +63,46 @@ def get_latest_signals():
     return completed[-1]["result"]
 
 async def _run_radar_job(job_id: str, request: RadarRequest):
+    """Now delegates entirely to the multi-agent orchestrator."""
     try:
         _jobs[job_id]["status"] = "running"
 
-        # Import here to keep startup fast
-        from backend.data.fetcher import fetch_all_ohlc, fetch_bulk_deals, NIFTY50
-        from backend.signals.scorer import score_all_signals
-        from backend.patterns.detector import detect_patterns_all
-        from backend.ai.gemini_client import generate_signal_card
+        from backend.agents.orchestrator import GrowthArthaOrchestrator
+        from backend.data.fetcher import NIFTY50
 
-        # Step 1: fetch data
-        symbols = NIFTY50
-        ohlc_data = fetch_all_ohlc(symbols)
-        bulk_deals = fetch_bulk_deals()
-
-        # Step 2: detect patterns
-        patterns = detect_patterns_all(ohlc_data)
-
-        # Step 3: score signals
-        signals = score_all_signals(
-            ohlc_data=ohlc_data,
-            bulk_deals=bulk_deals,
-            patterns=patterns,
-            portfolio=request.portfolio
+        orchestrator = GrowthArthaOrchestrator()
+        result = orchestrator.run(
+            portfolio=request.portfolio,
+            symbols=NIFTY50
         )
-
-        # Step 4: generate AI cards for top 10 signals only
-        # (don't call Gemini for every stock — rate limits)
-        top_signals = signals[:10]
-        for signal in top_signals:
-            signal["ai_card"] = generate_signal_card(signal)
-
-        # Step 5: split into three buckets
-        act    = [s for s in signals if s["score"] >= 0.65][:3]
-        watch  = [s for s in signals if 0.35 <= s["score"] < 0.65][:5]
-        exit_r = [s for s in signals if s["score"] < 0][:3]
 
         _jobs[job_id] = {
             "status": "done",
-            "result": {
-                "act": act,
-                "watch": watch,
-                "exit_radar": exit_r,
-                "total_scanned": len(symbols),
-                "total_signals": len(signals),
-            },
-            "error": None
+            "result": _sanitize(result),
+            "error":  None
         }
 
     except Exception as e:
         _jobs[job_id] = {"status": "error", "result": None, "error": str(e)}
         raise
+
+
+@router.get("/audit/{job_id}")
+def get_audit_trail(job_id: str):
+    """
+    Returns the full agent reasoning log for a completed scan.
+    Shows every tool call, decision, and result — the agentic audit trail.
+    """
+    if job_id not in _jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    job = _jobs[job_id]
+    if job["status"] != "done":
+        return {"status": job["status"], "audit_log": []}
+
+    return {
+        "status":           "done",
+        "audit_log":        job["result"].get("audit_log", []),
+        "tool_calls":       job["result"].get("tool_calls", []),
+        "elapsed_seconds":  job["result"].get("elapsed_seconds")
+    }

@@ -4,11 +4,10 @@ import {
   createChart,
   ColorType,
   CandlestickSeries,
-  LineSeries,
-  IChartApi,
-  ISeriesApi,
+  createSeriesMarkers,
 } from 'lightweight-charts'
-import { getOHLC } from '../api/endpoints'
+import type { IChartApi, ISeriesApi } from 'lightweight-charts'
+import { getOHLC } from '../api/enpoints'
 
 interface Pattern {
   pattern: string
@@ -141,7 +140,7 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
         // sort by time (required by lightweight-charts)
         .sort((a, b) => (a.time < b.time ? -1 : 1))
 
-      candleSeries.current.setMarkers(markers)
+      createSeriesMarkers(candleSeries.current, markers)
     }
 
     // Fit chart to show last 90 days by default

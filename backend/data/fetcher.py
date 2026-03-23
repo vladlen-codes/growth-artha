@@ -4,6 +4,7 @@ import requests
 import json
 import time
 import os
+import feedparser
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -140,6 +141,36 @@ def fetch_stock_info(symbol: str) -> dict:
     except Exception as e:
         print(f"Info fetch failed for {symbol}: {e}")
         return {"symbol": symbol, "name": symbol}
+
+
+# Simple in-memory cache for news (1 hour TTL)
+_news_cache: dict = {}
+
+def fetch_news_headlines(symbol: str, max_articles: int = 8) -> list:
+    """Fetch latest news headlines for a stock via Google News RSS."""
+    cache_key = symbol.upper()
+    cached = _news_cache.get(cache_key)
+    if cached and (datetime.now().timestamp() - cached["ts"]) < 3600:
+        return cached["headlines"][:max_articles]
+
+    try:
+        query = f"{symbol} NSE stock"
+        url = f"https://news.google.com/rss/search?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
+        feed = feedparser.parse(url)
+        headlines = [
+            {
+                "title":     entry.get("title", ""),
+                "published": entry.get("published", ""),
+                "link":      entry.get("link", ""),
+            }
+            for entry in feed.entries[:max_articles]
+        ]
+        _news_cache[cache_key] = {"ts": datetime.now().timestamp(), "headlines": headlines}
+        return headlines
+    except Exception as e:
+        print(f"News fetch failed for {symbol}: {e}")
+        return []
+
 
 
 if __name__ == "__main__":

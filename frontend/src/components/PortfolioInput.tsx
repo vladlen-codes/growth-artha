@@ -73,6 +73,22 @@ export default function PortfolioInput() {
         </button>
       </div>
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+
+      {/* Demo helper — remove before real deployment */}
+      {holdings.length === 0 && (
+        <button
+          onClick={() => {
+            // Replace with your actual demo stocks
+            ;['TCS', 'INFY', 'HDFCBANK'].forEach(sym =>
+              addHolding({ symbol: sym, quantity: 100, avg_price: 0 })
+            )
+          }}
+          className="text-[11px] text-gray-400 hover:text-brand-green
+                     transition-colors mt-1 underline underline-offset-2"
+        >
+          Load demo portfolio
+        </button>
+      )}
     </div>
   )
 }

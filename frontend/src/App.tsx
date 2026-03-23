@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import StockDetail from './pages/StockDetail'
+import { prewarmDemoStocks } from './api/enpoints'
 
 export type Page =
   | { name: 'dashboard' }
@@ -8,6 +9,10 @@ export type Page =
 
 export default function App() {
   const [page, setPage] = useState<Page>({ name: 'dashboard' })
+
+  useEffect(() => {
+    prewarmDemoStocks(['RELIANCE', 'HDFCBANK', 'TATAMOTORS'])
+  }, [])
 
   const navigate = (p: Page) => setPage(p)
 

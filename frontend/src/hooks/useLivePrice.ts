@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { getOHLC } from '../api/endpoints'
 import api from '../api/client'
 
 export function useLivePrice(symbol: string, intervalSeconds = 60) {

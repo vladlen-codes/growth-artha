@@ -3,10 +3,10 @@ interface Signal {
   score: number
   tags: string[]
   ai_card: string | null
-  portfolio_tag: string
-  last_price: number
-  price_change_pct: number
-  signal_count: number
+  portfolio_tag?: string
+  last_price?: number
+  price_change_pct?: number
+  signal_count?: number
 }
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
 }
 
 export default function SignalCard({ signal, variant, onClick }: Props) {
-  const isPositive = signal.price_change_pct >= 0
+  const isPositive = (signal.price_change_pct ?? 0) >= 0
   const isHolding  = signal.portfolio_tag === 'holding'
   const isSector   = signal.portfolio_tag === 'sector'
 
@@ -45,9 +45,9 @@ export default function SignalCard({ signal, variant, onClick }: Props) {
         </div>
         <div className={`text-xs font-medium mt-0.5
           ${isPositive ? 'text-brand-green' : 'text-red-500'}`}>
-          ₹{signal.last_price.toLocaleString('en-IN')}
+          {signal.last_price != null ? `₹${signal.last_price.toLocaleString('en-IN')}` : '—'}
           <span className="ml-1">
-            {isPositive ? '+' : ''}{signal.price_change_pct}%
+            {isPositive ? '+' : ''}{signal.price_change_pct ?? 0}%
           </span>
         </div>
       </div>
@@ -57,7 +57,7 @@ export default function SignalCard({ signal, variant, onClick }: Props) {
         <div className="flex items-center gap-2 mb-2">
           <ScoreBar score={signal.score} variant={variant} />
           <span className="text-xs font-medium text-gray-500 whitespace-nowrap">
-            {signal.signal_count} signal{signal.signal_count > 1 ? 's' : ''}
+            {signal.signal_count ?? 0} signal{(signal.signal_count ?? 0) > 1 ? 's' : ''}
           </span>
         </div>
 

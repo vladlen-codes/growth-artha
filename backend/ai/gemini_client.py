@@ -4,18 +4,53 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+_api_key = os.getenv("GEMINI_API_KEY")
+_model = None
 
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    generation_config={
-        "temperature": 0.3,      # low temp = consistent, factual output
-        "max_output_tokens": 1024,
-    }
-)
+if _api_key:
+    try:
+        genai.configure(api_key=_api_key)
+        _model = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            generation_config={
+                "temperature": 0.3,
+                "max_output_tokens": 1024,
+            }
+        )
+    except Exception as e:
+        print(f"Gemini init failed: {e}")
+else:
+    print("Warning: GEMINI_API_KEY not set — AI cards will be unavailable")
 
-def generate_signal_card(signal_payload: dict) -> str:
-    prompt = f"""
+import time
+
+def _generate_with_retry(prompt: str) -> str:
+    """Helper to enforce rate limits (15 RPM) and retry on 429 errors."""
+    if not _model:
+        raise ValueError("Model not configured")
+    
+    # Mandatory sleep to stay under 15 RPM (1 request per 4s)
+    time.sleep(4)
+    
+    retries = 0
+    while True:
+        try:
+            response = _model.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            if "429" in str(e) and retries < 3:
+                wait_time = 15 * (2 ** retries)
+                print(f"Gemini 429 Rate Limit Hit. Waiting {wait_time}s...")
+                time.sleep(wait_time)
+                retries += 1
+            else:
+                raise
+
+def generate_signal_card(signal_payload: dict) -> str | None:
+    if not _model:
+        return None
+    try:
+        prompt = f"""
 You are Growth Artha, an AI investment research assistant for Indian retail investors.
 You receive structured signal data about NSE-listed stocks and write clear, factual alert cards.
 
@@ -30,11 +65,16 @@ SIGNAL DATA:
 
 Write the alert card now:
 """
-    response = model.generate_content(prompt)
-    return response.text
+        return _generate_with_retry(prompt)
+    except Exception as e:
+        print(f"generate_signal_card failed: {e}")
+        return None
 
-def generate_explanation(symbol: str, signal_payload: dict) -> str:
-    prompt = f"""
+def generate_explanation(symbol: str, signal_payload: dict) -> str | None:
+    if not _model:
+        return None
+    try:
+        prompt = f"""
 You are Growth Artha. A user is asking why {symbol} was flagged in today's radar.
 
 Explain in 3 short paragraphs:
@@ -47,11 +87,16 @@ Keep it factual. No buy/sell recommendations. Use simple language.
 SIGNAL DATA:
 {signal_payload}
 """
-    response = model.generate_content(prompt)
-    return response.text
+        return _generate_with_retry(prompt)
+    except Exception as e:
+        print(f"generate_explanation failed: {e}")
+        return None
 
 def generate_portfolio_summary(portfolio: list, top_signals: list) -> str:
-    prompt = f"""
+    if not _model:
+        return "AI assistant is unavailable — GEMINI_API_KEY not configured."
+    try:
+        prompt = f"""
 You are Growth Artha. A user holds the following stocks:
 {portfolio}
 
@@ -67,12 +112,17 @@ Rules:
 - No buy/sell language
 - Under 150 words total
 """
-    response = model.generate_content(prompt)
-    return response.text
+        return _generate_with_retry(prompt)
+    except Exception as e:
+        print(f"generate_portfolio_summary failed: {e}")
+        return "AI assistant encountered an error. Please try again."
 
 
 def answer_chat_question(question: str, context: dict) -> str:
-    prompt = f"""
+    if not _model:
+        return "AI assistant is unavailable — GEMINI_API_KEY not configured."
+    try:
+        prompt = f"""
 You are Growth Artha, an AI research assistant for Indian retail investors on ET Markets.
 
 Context for today:
@@ -84,5 +134,7 @@ Answer the question using only the context provided.
 Be concise (under 100 words), factual, and cite specific data points.
 Never give direct buy/sell advice.
 """
-    response = model.generate_content(prompt)
-    return response.text
+        return _generate_with_retry(prompt)
+    except Exception as e:
+        print(f"answer_chat_question failed: {e}")
+        return "AI assistant encountered an error. Please try again."

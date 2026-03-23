@@ -4,7 +4,7 @@ import time
 import json
 from pathlib import Path
 from datetime import datetime, timedelta
-from backend.ai.gemini_client import model
+import backend.ai.gemini_client as _gemini
 
 CACHE_DIR = Path("data/cache")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -95,6 +95,10 @@ def analyse_sentiment(symbol: str, headlines: list[dict]) -> dict:
     if not headlines:
         return _empty_sentiment(symbol)
 
+    _model = _gemini._model
+    if not _model:
+        return _empty_sentiment(symbol)
+
     headlines_text = "\n".join([
         f"- [{h['source']}] {h['title']}"
         for h in headlines
@@ -126,9 +130,9 @@ Rules:
 - summary: written for a retail investor, plain English, no jargon
 """
     try:
-        response = model.generate_content(prompt)
+        raw_response = _gemini._generate_with_retry(prompt)
         # Strip markdown code fences if Gemini wraps in ```json
-        raw = response.text.strip()
+        raw = raw_response.strip()
         raw = re.sub(r"^```json\s*", "", raw)
         raw = re.sub(r"^```\s*",     "", raw)
         raw = re.sub(r"\s*```$",     "", raw)
@@ -146,7 +150,6 @@ Rules:
 
     except json.JSONDecodeError as e:
         print(f"Gemini JSON parse failed for {symbol}: {e}")
-        print(f"Raw response: {response.text[:200]}")
         return _empty_sentiment(symbol)
     except Exception as e:
         print(f"Sentiment analysis failed for {symbol}: {e}")

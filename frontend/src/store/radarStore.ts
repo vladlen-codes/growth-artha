@@ -7,6 +7,9 @@ interface Signal {
   ai_card: string
   patterns: any[]
   events: any[]
+  signal_count?: number
+  last_price?: number
+  price_change_pct?: number
   portfolio_tag?: string  // 'holding' | 'sector' | null
 }
 
