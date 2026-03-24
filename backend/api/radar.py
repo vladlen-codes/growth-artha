@@ -4,8 +4,15 @@ from typing import Optional
 import uuid
 import asyncio
 import numpy as np
+import json
+from pathlib import Path
+from datetime import datetime
 
 router = APIRouter()
+
+
+RADAR_CACHE_FILE = Path("data/cache/latest_radar_result.json")
+RADAR_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _sanitize(obj):
@@ -28,6 +35,79 @@ def _sanitize(obj):
 # In-memory job store — fine for hackathon
 # Replace with SQLite if you need persistence across restarts
 _jobs: dict = {}
+
+
+def _save_latest_result(result: dict) -> None:
+    try:
+        with open(RADAR_CACHE_FILE, "w") as f:
+            json.dump(result, f, default=str)
+    except Exception:
+        # Cache write failure should never break the API response.
+        pass
+
+
+def _load_latest_result() -> Optional[dict]:
+    if not RADAR_CACHE_FILE.exists():
+        return None
+    try:
+        with open(RADAR_CACHE_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _is_gemini_auth_error(message: str) -> bool:
+    msg = (message or "").lower()
+    return any(keyword in msg for keyword in [
+        "api_key_invalid",
+        "api key not found",
+        "api key was reported as leaked",
+        "invalid api key",
+        "generativelanguage.googleapis.com",
+        "429",
+        "quota",
+        "resource_exhausted",
+        "permission_denied",
+        "gemini api",
+        "not retrying"
+    ])
+
+
+def _run_non_ai_radar(portfolio: list[str], symbols: list[str]) -> dict:
+    """Fallback radar pipeline that does not depend on Gemini."""
+    from backend.data.fetcher import fetch_all_ohlc, fetch_bulk_deals
+    from backend.patterns.detector import detect_patterns_all
+    from backend.signals.scorer import score_all_signals
+
+    start = datetime.now()
+    ohlc_data = fetch_all_ohlc(symbols)
+    bulk_deals = fetch_bulk_deals()
+    patterns = detect_patterns_all(ohlc_data)
+    signals = score_all_signals(
+        ohlc_data=ohlc_data,
+        bulk_deals=bulk_deals,
+        patterns=patterns,
+        portfolio=portfolio or []
+    )
+
+    act = [s for s in signals if s.get("score", 0) >= 0.65][:6]
+    watch = [s for s in signals if 0.35 <= s.get("score", 0) < 0.65][:10]
+    exit_radar = [s for s in signals if s.get("score", 0) < 0][:10]
+    elapsed = (datetime.now() - start).total_seconds()
+
+    return {
+        "act": act,
+        "watch": watch,
+        "exit_radar": exit_radar,
+        "portfolio_brief": "AI summary unavailable due to Gemini key issue.",
+        "total_scanned": len(ohlc_data),
+        "total_signals": len(signals),
+        "elapsed_seconds": round(elapsed, 1),
+        "audit_log": [],
+        "tool_calls": [],
+        "scanned_at": datetime.now().isoformat(),
+        "using_non_ai_fallback": True,
+    }
 
 class RadarRequest(BaseModel):
     portfolio: Optional[list[str]] = []   # list of symbols user holds
@@ -59,7 +139,17 @@ def get_radar_status(job_id: str):
 def get_latest_signals():
     completed = [j for j in _jobs.values() if j["status"] == "done"]
     if not completed:
-        return {"signals": [], "message": "No scan run yet. POST to /api/radar/run"}
+        cached = _load_latest_result()
+        if cached:
+            return cached
+        return {
+            "act": [],
+            "watch": [],
+            "exit_radar": [],
+            "total_scanned": 0,
+            "total_signals": 0,
+            "message": "No scan run yet. POST to /api/radar/run"
+        }
     return completed[-1]["result"]
 
 async def _run_radar_job(job_id: str, request: RadarRequest):
@@ -81,8 +171,37 @@ async def _run_radar_job(job_id: str, request: RadarRequest):
             "result": _sanitize(result),
             "error":  None
         }
+        _save_latest_result(_jobs[job_id]["result"])
 
     except Exception as e:
+        if _is_gemini_auth_error(str(e)):
+            try:
+                from backend.data.fetcher import NIFTY50
+
+                fallback_result = _run_non_ai_radar(
+                    portfolio=request.portfolio or [],
+                    symbols=NIFTY50,
+                )
+                fallback_result["fallback_reason"] = str(e)
+
+                _jobs[job_id] = {
+                    "status": "done",
+                    "result": _sanitize(fallback_result),
+                    "error": None,
+                }
+                _save_latest_result(_jobs[job_id]["result"])
+                return
+            except Exception:
+                # If non-AI fallback also fails, continue to cached fallback.
+                pass
+
+        cached = _load_latest_result()
+        if cached:
+            cached["using_cached_data"] = True
+            cached["fallback_reason"] = str(e)
+            _jobs[job_id] = {"status": "done", "result": cached, "error": None}
+            return
+
         _jobs[job_id] = {"status": "error", "result": None, "error": str(e)}
         raise
 

@@ -36,18 +36,32 @@ export default function App() {
 
 function Header({ onLogoClick }: { onLogoClick: () => void }) {
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-        <button onClick={onLogoClick} className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-brand-green flex items-center
-                          justify-center text-white font-semibold text-sm">G</div>
-          <span className="font-semibold text-gray-900">Growth Artha</span>
-          <span className="text-xs text-gray-400 hidden sm:block">
+    <header className="bg-white border-b border-[#EAECEF] sticky top-0 z-50">
+      <div className="max-w-5xl mx-auto px-6 h-[52px] flex items-center justify-between">
+        <button onClick={onLogoClick} className="flex items-center gap-2.5">
+          <div className="w-7 h-7 bg-[#1D9E75] rounded-[7px] flex items-center
+                          justify-center text-white font-bold text-[13px]
+                          tracking-tight">
+            GA
+          </div>
+          <span className="font-semibold text-[14px] text-gray-900 tracking-tight">
+            Growth Artha
+          </span>
+          <span className="text-[12px] text-gray-400 hidden sm:block">
             — AI signals for Indian investors
           </span>
         </button>
-        <div className="text-xs text-gray-400">
-          NSE · 15-min delayed
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 text-[11px]
+                          font-semibold text-[#1D9E75]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]
+                            animate-pulse" />
+            NSE live
+          </div>
+          <div className="text-[11px] bg-gray-100 text-gray-500
+                          rounded-[5px] px-2 py-1 font-medium">
+            15-min delayed
+          </div>
         </div>
       </div>
     </header>

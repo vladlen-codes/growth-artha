@@ -1,55 +1,54 @@
 import SignalCard from './SignalCard'
 
-interface Signal {
-  symbol: string
-  score: number
-  tags: string[]
-  ai_card: string | null
-  portfolio_tag?: string
-  last_price?: number
-  price_change_pct?: number
-  signal_count?: number
-}
-
 interface Props {
-  title: string
+  title:    string
   subtitle: string
-  signals: Signal[]
-  variant: 'act' | 'watch' | 'exit'
+  signals:  any[]
+  variant:  'act' | 'watch' | 'exit'
   onSelect: (symbol: string) => void
 }
 
-const VARIANT_STYLES = {
-  act:   { border: 'border-brand-green', badge: 'bg-brand-light text-brand-dark',
-           dot: 'bg-brand-green' },
-  watch: { border: 'border-amber-300',   badge: 'bg-amber-50 text-amber-700',
-           dot: 'bg-amber-400' },
-  exit:  { border: 'border-red-300',     badge: 'bg-red-50 text-red-600',
-           dot: 'bg-red-400' },
+const STYLES = {
+  act: {
+    dot:        'bg-[#1D9E75]',
+    border:     'border-l-[3px] border-l-[#1D9E75]',
+    count:      'bg-[#F0FDF8] text-[#065F46]',
+    titleColor: 'text-gray-900',
+  },
+  watch: {
+    dot:        'bg-[#F59E0B]',
+    border:     'border-l-[3px] border-l-[#F59E0B]',
+    count:      'bg-[#FFFBEB] text-[#92400E]',
+    titleColor: 'text-gray-900',
+  },
+  exit: {
+    dot:        'bg-[#EF4444]',
+    border:     'border-l-[3px] border-l-[#EF4444]',
+    count:      'bg-[#FEF2F2] text-[#991B1B]',
+    titleColor: 'text-gray-900',
+  },
 }
 
 export default function RadarBucket({ title, subtitle, signals, variant, onSelect }: Props) {
-  const styles = VARIANT_STYLES[variant]
-
-  if (signals.length === 0) return null
+  if (!signals?.length) return null
+  const s = STYLES[variant]
 
   return (
-    <div className={`bg-white rounded-xl border-2 ${styles.border} overflow-hidden`}>
-      {/* Bucket header */}
-      <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
-        <div className={`w-2 h-2 rounded-full ${styles.dot}`} />
-        <div>
-          <span className="font-semibold text-gray-900 text-sm">{title}</span>
-          <span className="text-xs text-gray-400 ml-2">{subtitle}</span>
-        </div>
-        <span className={`ml-auto text-xs font-medium px-2 py-0.5
-                          rounded-full ${styles.badge}`}>
-          {signals.length} stock{signals.length > 1 ? 's' : ''}
+    <div className="mb-4">
+      <div className="flex items-center gap-2.5 mb-2.5 px-1">
+        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
+        <span className={`text-[14px] font-bold tracking-tight ${s.titleColor}`}>
+          {title}
+        </span>
+        <span className="text-[12px] text-gray-400">{subtitle}</span>
+        <span className={`ml-auto text-[11px] font-semibold
+                          px-2.5 py-0.5 rounded-full ${s.count}`}>
+          {signals.length} stock{signals.length !== 1 ? 's' : ''}
         </span>
       </div>
 
-      {/* Signal cards */}
-      <div className="divide-y divide-gray-50">
+      <div className={`bg-white rounded-xl border border-gray-200
+                       overflow-hidden ${s.border}`}>
         {signals.map(signal => (
           <SignalCard
             key={signal.symbol}

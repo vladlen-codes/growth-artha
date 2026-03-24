@@ -38,9 +38,9 @@ export const useRadarStore = create<RadarStore>((set) => ({
   status: 'idle',
   result: null,
   error: null,
-  setJob:    (jobId)  => set({ jobId, status: 'pending' }),
+  setJob:    (jobId)  => set({ jobId, status: 'pending', error: null }),
   setStatus: (status) => set({ status }),
-  setResult: (result) => set({ result, status: 'done' }),
+  setResult: (result) => set({ result, status: 'done', error: null }),
   setError:  (error)  => set({ error, status: 'error' }),
   reset: () => set({ jobId: null, status: 'idle', result: null, error: null })
 }))

@@ -1,31 +1,41 @@
 interface Props {
   totalScanned: number
   totalSignals: number
-  actCount: number
-  watchCount: number
-  exitCount: number
+  actCount:     number
+  watchCount:   number
+  exitCount:    number
 }
 
 export default function StatsBar({
   totalScanned, totalSignals, actCount, watchCount, exitCount
 }: Props) {
-  const stats = [
-    { label: 'Stocks scanned',  value: totalScanned },
-    { label: 'Signals found',   value: totalSignals },
-    { label: 'Act now',         value: actCount,  color: 'text-brand-green' },
-    { label: 'Watch',           value: watchCount, color: 'text-amber-600' },
-    { label: 'Exit radar',      value: exitCount,  color: 'text-red-500' },
-  ]
-
   return (
-    <div className="grid grid-cols-5 gap-3">
-      {stats.map(s => (
-        <div key={s.label}
-             className="bg-white rounded-lg border border-gray-200 px-3 py-2.5 text-center">
-          <div className={`text-xl font-semibold ${s.color || 'text-gray-800'}`}>
-            {s.value}
+    <div className="grid grid-cols-5 gap-2.5 mb-5">
+      {[
+        { label: 'Stocks scanned', value: totalScanned, accent: null },
+        { label: 'Signals found',  value: totalSignals, accent: null },
+        { label: 'Act now',        value: actCount,     accent: 'act'   },
+        { label: 'Watch list',     value: watchCount,   accent: 'watch' },
+        { label: 'Exit radar',     value: exitCount,    accent: 'exit'  },
+      ].map(({ label, value, accent }) => (
+        <div
+          key={label}
+          className={`bg-white rounded-[10px] border border-gray-200
+                      px-4 py-3.5
+                      ${accent === 'act'   ? 'border-t-[3px] border-t-[#1D9E75]' : ''}
+                      ${accent === 'watch' ? 'border-t-[3px] border-t-[#F59E0B]' : ''}
+                      ${accent === 'exit'  ? 'border-t-[3px] border-t-[#EF4444]' : ''}
+                      `}
+        >
+          <div className={`text-[26px] font-bold tracking-tight leading-none mb-1
+            ${accent === 'act'   ? 'text-[#1D9E75]' : ''}
+            ${accent === 'watch' ? 'text-[#D97706]' : ''}
+            ${accent === 'exit'  ? 'text-[#EF4444]' : ''}
+            ${!accent            ? 'text-gray-900'  : ''}
+          `}>
+            {value}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">{s.label}</div>
+          <div className="text-[11px] text-gray-400 font-medium">{label}</div>
         </div>
       ))}
     </div>
