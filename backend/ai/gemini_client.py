@@ -25,26 +25,24 @@ else:
 import time
 
 def _generate_with_retry(prompt: str) -> str:
-    """Helper to enforce rate limits (15 RPM) and retry on 429 errors."""
+    """Helper to enforce rate limits (15 RPM) and fail fast on quota errors."""
     if not _model:
         raise ValueError("Model not configured")
     
     # Mandatory sleep to stay under 15 RPM (1 request per 4s)
     time.sleep(4)
     
-    retries = 0
-    while True:
-        try:
-            response = _model.generate_content(prompt)
-            return response.text
-        except Exception as e:
-            if "429" in str(e) and retries < 3:
-                wait_time = 15 * (2 ** retries)
-                print(f"Gemini 429 Rate Limit Hit. Waiting {wait_time}s...")
-                time.sleep(wait_time)
-                retries += 1
-            else:
-                raise
+    try:
+        response = _model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        error_str = str(e)
+        # Fail fast on quota/auth errors - don't retry, let caller handle fallback
+        if any(code in error_str for code in ["429", "403", "401", "RESOURCE_EXHAUSTED", "PERMISSION_DENIED"]):
+            print(f"Gemini API error (quota/auth): {error_str[:100]}")
+            raise ValueError(f"Gemini API error: {error_str[:100]}")
+        # For other errors, also fail fast
+        raise
 
 def generate_signal_card(signal_payload: dict) -> str | None:
     if not _model:

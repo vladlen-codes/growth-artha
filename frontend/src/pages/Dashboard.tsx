@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useRadarStore } from '../store/radarStore'
 import { usePortfolioStore } from '../store/portfolioStore'
 import { useNotifications } from '../hooks/useNotifications'
-import { runRadar, getRadarStatus } from '../api/enpoints'
+import { runRadar, getRadarStatus, getLatestSignals } from '../api/enpoints'
 import PortfolioInput from '../components/PortfolioInput'
 import RadarBucket from '../components/RadarBucket'
 import RunRadarButton from '../components/RunRadarButton'
@@ -14,10 +14,41 @@ interface Props {
 }
 
 export default function Dashboard({ onSelectStock }: Props) {
-  const { status, result, jobId, setJob, setStatus, setResult, setError } = useRadarStore()
+  const { status, result, error, jobId, setJob, setStatus, setResult, setError } = useRadarStore()
   const { getSymbols } = usePortfolioStore()
   const { onRadarComplete } = useNotifications()
   const [pollInterval, setPollInterval] = useState<ReturnType<typeof setInterval> | null>(null)
+  const [showCachedBanner, setShowCachedBanner] = useState(false)
+
+  const tryLoadCachedResult = async () => {
+    try {
+      const latest = await getLatestSignals()
+      const cached = latest.data
+
+      const hasRadarShape = cached
+        && Array.isArray(cached.act)
+        && Array.isArray(cached.watch)
+        && Array.isArray(cached.exit_radar)
+
+      // Use fallback only when a real previous scan exists.
+      const hasMeaningfulCachedData = hasRadarShape && (
+        (cached.total_scanned ?? 0) > 0
+        || (cached.total_signals ?? 0) > 0
+        || cached.act.length > 0
+        || cached.watch.length > 0
+        || cached.exit_radar.length > 0
+      )
+
+      if (hasMeaningfulCachedData) {
+        setResult(cached)
+        setShowCachedBanner(true)
+        return true
+      }
+    } catch {
+      // Ignore here — caller decides the error state to show.
+    }
+    return false
+  }
 
   // Poll for job completion
   useEffect(() => {
@@ -33,16 +64,23 @@ export default function Dashboard({ onSelectStock }: Props) {
 
         if (job.status === 'done') {
           setResult(job.result)
+          setShowCachedBanner(false)
           onRadarComplete(job.result)
           clearInterval(interval)
         } else if (job.status === 'error') {
-          setError(job.error || 'Scan failed')
+          const hasCached = await tryLoadCachedResult()
+          if (!hasCached) {
+            setError(job.error || 'Scan failed')
+          }
           clearInterval(interval)
         } else {
           setStatus(job.status)
         }
       } catch {
-        setError('Could not reach server')
+        const hasCached = await tryLoadCachedResult()
+        if (!hasCached) {
+          setError('Could not reach server')
+        }
         clearInterval(interval)
       }
     }, 2000)   // poll every 2 seconds
@@ -53,6 +91,7 @@ export default function Dashboard({ onSelectStock }: Props) {
 
   const handleRunRadar = async () => {
     try {
+      setShowCachedBanner(false)
       const portfolio = getSymbols()
       const res = await runRadar(portfolio)
       setJob(res.data.job_id)
@@ -96,12 +135,13 @@ export default function Dashboard({ onSelectStock }: Props) {
 
       {/* Error state */}
       {status === 'error' && (
-        <ErrorState onRetry={handleRunRadar} />
+        <ErrorState onRetry={handleRunRadar} errorMessage={error} />
       )}
 
       {/* Results — three buckets */}
       {status === 'done' && result && (
         <div className="space-y-5">
+          {showCachedBanner && <CachedDataBanner />}
           <RadarBucket
             title="Act"
             subtitle="Strong convergent signals — review today"
@@ -166,13 +206,36 @@ function ScanningState() {
   )
 }
 
-function ErrorState({ onRetry }: { onRetry: () => void }) {
+function ErrorState({
+  onRetry,
+  errorMessage,
+}: {
+  onRetry: () => void
+  errorMessage: string | null
+}) {
+  const isApiKeyError = (errorMessage || '').toLowerCase().includes('api key')
+
   return (
     <div className="bg-red-50 rounded-xl border border-red-200 p-6 text-center">
       <p className="text-sm font-medium text-red-700 mb-1">Scan failed</p>
       <p className="text-xs text-red-500 mb-4">
-        Showing last cached data if available. NSE endpoints occasionally block requests.
+        {errorMessage || 'Could not complete scan. Please try again.'}
       </p>
+      {!isApiKeyError && (
+        <p className="text-xs text-red-500 mb-4">
+          Showing last cached data if available. NSE endpoints occasionally block requests.
+        </p>
+      )}
+      {isApiKeyError && (
+        <p className="text-xs text-red-500 mb-4">
+          Update your Gemini key in .env and restart backend.
+        </p>
+      )}
+      {errorMessage && (
+        <p className="text-[11px] text-red-400 mb-4 break-all">
+          {errorMessage}
+        </p>
+      )}
       <button
         onClick={onRetry}
         className="text-xs font-medium text-red-600 border border-red-300
@@ -180,6 +243,16 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
       >
         Retry scan
       </button>
+    </div>
+  )
+}
+
+function CachedDataBanner() {
+  return (
+    <div className="bg-amber-50 rounded-xl border border-amber-200 p-3">
+      <p className="text-xs text-amber-700">
+        Showing last cached data if available. NSE endpoints occasionally block requests.
+      </p>
     </div>
   )
 }

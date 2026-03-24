@@ -63,21 +63,17 @@ class BaseAgent:
             # Build the contents list freshly each time
             contents = [{"role": "user", "parts": [first_message]}] + history
 
-            # Call Gemini with retry on 429
-            retries = 0
-            while True:
-                try:
-                    response = self.model.generate_content(contents)
-                    break
-                except Exception as e:
-                    err = str(e)
-                    if "429" in err and retries < self.MAX_RETRIES:
-                        wait = 15 * (2 ** retries)  # 15s, 30s, 60s
-                        self._log(f"Rate limited (429), waiting {wait}s before retry {retries+1}")
-                        time.sleep(wait)
-                        retries += 1
-                    else:
-                        raise
+            # Call Gemini with timeout on rate limit errors
+            try:
+                response = self.model.generate_content(contents)
+            except Exception as e:
+                err = str(e)
+                # Fail fast on quota/auth errors — don't retry, let radar endpoint handle fallback
+                if any(code in err for code in ["429", "403", "401", "RESOURCE_EXHAUSTED", "PERMISSION_DENIED"]):
+                    self._log(f"Gemini quota/auth error (not retrying): {err[:100]}")
+                    raise ValueError(f"Gemini API quota exceeded or auth failed - using non-AI fallback. Error: {err[:100]}")
+                # For other errors, also fail fast
+                raise
 
             # Check if Gemini wants to call a tool
             tool_calls = self._extract_tool_calls(response)

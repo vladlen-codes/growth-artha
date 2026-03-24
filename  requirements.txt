@@ -8,6 +8,7 @@ scipy
 requests
 python-dotenv
 google-generativeai
+openai
 pydantic
 sqlalchemy
 aiofiles
