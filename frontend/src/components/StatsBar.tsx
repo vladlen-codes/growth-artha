@@ -1,22 +1,26 @@
 interface Props {
-  totalScanned: number
-  totalSignals: number
-  actCount:     number
-  watchCount:   number
-  exitCount:    number
+  totalScanned:  number
+  liquidStocks?: number
+  analysedStocks?: number
+  totalSignals:  number
+  actCount:      number
+  watchCount:    number
+  exitCount:     number
 }
 
 export default function StatsBar({
-  totalScanned, totalSignals, actCount, watchCount, exitCount
+  totalScanned, liquidStocks, analysedStocks, totalSignals, actCount, watchCount, exitCount
 }: Props) {
   return (
-    <div className="grid grid-cols-5 gap-2.5 mb-5">
+    <div className="grid grid-cols-7 gap-2.5 mb-5">
       {[
-        { label: 'Stocks scanned', value: totalScanned, accent: null },
-        { label: 'Signals found',  value: totalSignals, accent: null },
-        { label: 'Act now',        value: actCount,     accent: 'act'   },
-        { label: 'Watch list',     value: watchCount,   accent: 'watch' },
-        { label: 'Exit radar',     value: exitCount,    accent: 'exit'  },
+        { label: 'Universe',          value: totalScanned.toLocaleString('en-IN'), accent: null },
+        { label: 'Liquid stocks',     value: liquidStocks  || '—', accent: null },
+        { label: 'Analysed',          value: analysedStocks || totalScanned, accent: null },
+        { label: 'Signals found',     value: totalSignals,  accent: null },
+        { label: 'Act now',           value: actCount,      accent: 'act'   },
+        { label: 'Watch',             value: watchCount,    accent: 'watch' },
+        { label: 'Exit radar',        value: exitCount,     accent: 'exit'  },
       ].map(({ label, value, accent }) => (
         <div
           key={label}

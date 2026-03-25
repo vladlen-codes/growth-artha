@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Dashboard from './pages/Dashboard'
 import StockDetail from './pages/StockDetail'
+import MarketBar from './components/MarketBar'
 import { prewarmDemoStocks } from './api/enpoints'
 
 export type Page =
@@ -19,6 +20,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header onLogoClick={() => navigate({ name: 'dashboard' })} />
+      <MarketBar />
       <main className="max-w-6xl mx-auto px-4 py-6">
         {page.name === 'dashboard' && (
           <Dashboard onSelectStock={(sym) => navigate({ name: 'stock', symbol: sym })} />
@@ -58,10 +60,7 @@ function Header({ onLogoClick }: { onLogoClick: () => void }) {
                             animate-pulse" />
             NSE live
           </div>
-          <div className="text-[11px] bg-gray-100 text-gray-500
-                          rounded-[5px] px-2 py-1 font-medium">
-            15-min delayed
-          </div>
+          {/* REMOVE the 15-min delayed badge entirely */}
         </div>
       </div>
     </header>

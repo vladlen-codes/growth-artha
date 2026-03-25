@@ -1,8 +1,8 @@
 import api from './client'
 
 // Radar
-export const runRadar    = (portfolio: string[]) =>
-  api.post('/radar/run', { portfolio })
+export const runRadar    = (portfolio: string[], universe = 'nifty50') =>
+  api.post('/radar/run', { portfolio, universe })
 
 export const getRadarStatus = (jobId: string) =>
   api.get(`/radar/status/${jobId}`)
