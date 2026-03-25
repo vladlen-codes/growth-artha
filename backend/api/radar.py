@@ -110,8 +110,8 @@ def _run_non_ai_radar(portfolio: list[str], symbols: list[str]) -> dict:
     }
 
 class RadarRequest(BaseModel):
-    portfolio: Optional[list[str]] = []   # list of symbols user holds
-    universe: Optional[str] = "nifty50"  # which stock universe to scan
+    portfolio: list[str] = []   # list of symbols user holds
+    universe:  str = "nifty50"   # "nifty50" | "nifty500" | "full"
 
 class RadarJob(BaseModel):
     job_id: str
@@ -153,48 +153,28 @@ def get_latest_signals():
     return completed[-1]["result"]
 
 async def _run_radar_job(job_id: str, request: RadarRequest):
-    """Now delegates entirely to the multi-agent orchestrator."""
     try:
         _jobs[job_id]["status"] = "running"
 
-        from backend.agents.orchestrator import GrowthArthaOrchestrator
-        from backend.data.fetcher import NIFTY50
+        if request.universe == "full":
+            # Full 4000+ stock scan — use three-tier pipeline
+            from backend.agents.orchestrator import run_full_universe
+            result = await run_full_universe(portfolio=request.portfolio)
+        else:
+            # Standard Nifty 50/500 scan — existing pipeline
+            from backend.agents.orchestrator import GrowthArthaOrchestrator
+            from backend.data.fetcher import NIFTY50
+            from backend.data.universe import TIER_2_NIFTY500_EXTRA
+            symbols = NIFTY50 if request.universe == "nifty50" \
+                      else NIFTY50 + TIER_2_NIFTY500_EXTRA
+            orch   = GrowthArthaOrchestrator()
+            result = orch.run(portfolio=request.portfolio, symbols=symbols)
 
-        orchestrator = GrowthArthaOrchestrator()
-        result = orchestrator.run(
-            portfolio=request.portfolio,
-            symbols=NIFTY50
-        )
-
-        _jobs[job_id] = {
-            "status": "done",
-            "result": _sanitize(result),
-            "error":  None
-        }
+        _jobs[job_id] = {"status": "done", "result": _sanitize(result), "error": None}
         _save_latest_result(_jobs[job_id]["result"])
 
     except Exception as e:
-        if _is_gemini_auth_error(str(e)):
-            try:
-                from backend.data.fetcher import NIFTY50
-
-                fallback_result = _run_non_ai_radar(
-                    portfolio=request.portfolio or [],
-                    symbols=NIFTY50,
-                )
-                fallback_result["fallback_reason"] = str(e)
-
-                _jobs[job_id] = {
-                    "status": "done",
-                    "result": _sanitize(fallback_result),
-                    "error": None,
-                }
-                _save_latest_result(_jobs[job_id]["result"])
-                return
-            except Exception:
-                # If non-AI fallback also fails, continue to cached fallback.
-                pass
-
+        # Try cached result
         cached = _load_latest_result()
         if cached:
             cached["using_cached_data"] = True

@@ -48,17 +48,30 @@ def get_sentiment(symbol: str, force_refresh: bool = False):
 
 @router.get("/{symbol}/price")
 def get_live_price(symbol: str):
-    try:
-        import yfinance as yf
-        ticker = yf.Ticker(f"{symbol}.NS")
-        info = ticker.fast_info
-        return {
-            "symbol":       symbol,
-            "price":        round(info.last_price, 2),
-            "prev_close":   round(info.previous_close, 2),
-            "change_pct":   round((info.last_price - info.previous_close) / info.previous_close * 100, 2),
-            "updated_at":   datetime.now().isoformat(),
-            "delay_notice": "15-min delayed"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Price unavailable: {e}")
+    """
+    Real-time NSE price via nsetools.
+    Falls back to yfinance if NSE blocks the request.
+    No more 15-min delay badge — this is live.
+    """
+    from backend.data.fetcher import fetch_live_quote
+    return fetch_live_quote(symbol.upper())
+
+
+@router.get("/market/overview")
+def get_market_overview():
+    """
+    Live Nifty 50 index + top gainers + top losers.
+    ET Markets shows this — Growth Artha shows it WITH signal context.
+    """
+    from backend.data.fetcher import (
+        fetch_nifty_index_quote,
+        fetch_top_gainers_losers
+    )
+    nifty  = fetch_nifty_index_quote()
+    gl     = fetch_top_gainers_losers()
+    return {
+        "nifty50": nifty,
+        "gainers": gl["gainers"],
+        "losers":  gl["losers"],
+        "updated_at": datetime.now().isoformat()
+    }

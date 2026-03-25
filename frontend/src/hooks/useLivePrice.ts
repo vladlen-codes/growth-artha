@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
 
-export function useLivePrice(symbol: string, intervalSeconds = 60) {
-  const [price, setPrice]         = useState<number | null>(null)
-  const [changePct, setChangePct] = useState<number | null>(null)
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
-  const [loading, setLoading]     = useState(true)
+export function useLivePrice(symbol: string, intervalSeconds = 30) {
+  const [data,    setData]    = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!symbol) return
@@ -13,20 +11,19 @@ export function useLivePrice(symbol: string, intervalSeconds = 60) {
     const fetch = async () => {
       try {
         const res = await api.get(`/stocks/${symbol}/price`)
-        setPrice(res.data.price)
-        setChangePct(res.data.change_pct)
-        setUpdatedAt(res.data.updated_at)
+        setData(res.data)
       } catch {
-        // silently keep last known price on error
+        // keep last known data on failure
       } finally {
         setLoading(false)
       }
     }
 
     fetch()
+    // 30s polling — live enough for a signal product
     const interval = setInterval(fetch, intervalSeconds * 1000)
-    return () => clearInterval(interval)   // cleanup on unmount
+    return () => clearInterval(interval)
   }, [symbol, intervalSeconds])
 
-  return { price, changePct, updatedAt, loading }
+  return { ...data, loading }
 }

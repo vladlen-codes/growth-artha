@@ -19,6 +19,7 @@ export default function Dashboard({ onSelectStock }: Props) {
   const { onRadarComplete } = useNotifications()
   const [pollInterval, setPollInterval] = useState<ReturnType<typeof setInterval> | null>(null)
   const [showCachedBanner, setShowCachedBanner] = useState(false)
+  const [universe, setUniverse] = useState<string>('nifty50')
 
   const tryLoadCachedResult = async () => {
     try {
@@ -93,7 +94,7 @@ export default function Dashboard({ onSelectStock }: Props) {
     try {
       setShowCachedBanner(false)
       const portfolio = getSymbols()
-      const res = await runRadar(portfolio)
+      const res = await runRadar(portfolio, universe)
       setJob(res.data.job_id)
     } catch (e) {
       setError('Failed to start scan')
@@ -112,6 +113,8 @@ export default function Dashboard({ onSelectStock }: Props) {
           </div>
           <RunRadarButton
             status={status}
+            universe={universe}
+            onUniverseChange={setUniverse}
             onClick={handleRunRadar}
           />
         </div>
@@ -121,6 +124,8 @@ export default function Dashboard({ onSelectStock }: Props) {
       {result && (
         <StatsBar
           totalScanned={result.total_scanned}
+          liquidStocks={result.liquid_stocks}
+          analysedStocks={result.analysed_stocks}
           totalSignals={result.total_signals}
           actCount={result.act.length}
           watchCount={result.watch.length}

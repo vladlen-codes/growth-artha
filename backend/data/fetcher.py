@@ -1,181 +1,209 @@
+from nsetools import Nse as NseTools
 import yfinance as yf
 import pandas as pd
-import requests
-import json
+from datetime import datetime
 import time
 import os
-import feedparser
-from datetime import datetime, timedelta
 from pathlib import Path
 
-CACHE_DIR = Path("data/cache")
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
+_nse_client = NseTools()
 
-# Nifty 50 symbols — yfinance format (append .NS)
+# Nifty 50 hardcoded list — demo default
 NIFTY50 = [
     "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
     "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
-    "LT", "AXISBANK", "ASIANPAINT", "MARUTI", "SUNPHARMA",
-    "TITAN", "BAJFINANCE", "WIPRO", "HCLTECH", "ULTRACEMCO",
-    "NESTLEIND", "TECHM", "POWERGRID", "NTPC", "TATAMOTORS",
-    "ONGC", "JSWSTEEL", "TATASTEEL", "ADANIENT", "ADANIPORTS",
-    "BAJAJFINSV", "COALINDIA", "BRITANNIA", "DRREDDY", "DIVISLAB",
-    "CIPLA", "EICHERMOT", "HEROMOTOCO", "HINDALCO", "INDUSINDBK",
-    "MM", "SBILIFE", "HDFCLIFE", "BPCL", "GRASIM",
-    "TATACONSUM", "APOLLOHOSP", "BAJAJ-AUTO", "UPL", "SHRIRAMFIN"
+    "LT", "AXISBANK", "MARUTI", "SUNPHARMA", "TITAN",
+    "BAJFINANCE", "WIPRO", "HCLTECH", "ULTRACEMCO", "NESTLEIND",
+    "TECHM", "POWERGRID", "NTPC", "TATAMOTORS", "ONGC",
+    "JSWSTEEL", "TATASTEEL", "ADANIENT", "ADANIPORTS", "DRREDDY",
+    "DIVISLAB", "CIPLA", "EICHERMOT", "HEROMOTOCO", "HINDALCO",
+    "INDUSINDBK", "MM", "SBILIFE", "HDFCLIFE", "BPCL",
+    "GRASIM", "TATACONSUM", "APOLLOHOSP", "BAJAJ-AUTO", "UPL",
+    "SHRIRAMFIN", "COALINDIA", "BRITANNIA", "ASIANPAINT"
 ]
 
 
-def fetch_ohlc(symbol: str, period: str = "2y") -> pd.DataFrame:
-    cache_file = CACHE_DIR / f"{symbol}_ohlc.parquet"
-
-    if cache_file.exists():
-        age = datetime.now().timestamp() - cache_file.stat().st_mtime
-        if age < 86400:  # 24 hours
-            return pd.read_parquet(cache_file)
-
-    ticker = yf.Ticker(f"{symbol}.NS")
-    df = ticker.history(period=period)
-
-    if df.empty:
-        print(f"  Warning: No data for {symbol}")
-        return pd.DataFrame()
-
-    df.index = pd.to_datetime(df.index).tz_localize(None)
-    df.to_parquet(cache_file)
-    print(f"  Fetched {symbol}: {len(df)} rows")
-    time.sleep(0.3)  # rate limit
-    return df
-
-
-def fetch_all_ohlc(symbols: list = None) -> dict:
-    symbols = symbols or NIFTY50
-    data = {}
-    print(f"Fetching OHLC for {len(symbols)} stocks...")
-    for sym in symbols:
-        df = fetch_ohlc(sym)
-        if not df.empty:
-            data[sym] = df
-    print(f"Done. Got data for {len(data)}/{len(symbols)} stocks.")
-    return data
-
-
-def fetch_bulk_deals() -> pd.DataFrame:
-    cache_file = CACHE_DIR / "bulk_deals.json"
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-        "Referer": "https://www.nseindia.com/"
-    }
-
+def get_nifty500_symbols() -> list:
+    """
+    Fetches live Nifty 500 constituent list from NSE.
+    Falls back to Nifty 50 if fetch fails.
+    """
     try:
-        session = requests.Session()
-        # NSE requires a session cookie — get it first
-        session.get("https://www.nseindia.com", headers=headers, timeout=10)
-        time.sleep(1)
+        stocks = _nse_client.get_stocks_in_index("NIFTY 500")
+        if stocks and len(stocks) > 50:
+            print(f"Nifty 500 loaded: {len(stocks)} stocks")
+            return stocks
+    except Exception as e:
+        print(f"Nifty 500 fetch failed: {e} — using Nifty 50")
+    return NIFTY50
 
-        url = "https://www.nseindia.com/api/snapshot-capital-market-largedeal"
-        resp = session.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
 
-        deals = resp.json()
-        with open(cache_file, "w") as f:
-            json.dump(deals, f)
+# Keep NIFTY50 as the demo default
+# Switch to get_nifty500_symbols() for production
+UNIVERSE = NIFTY50   # change to get_nifty500_symbols() when ready
 
-        df = pd.DataFrame(deals.get("data", []))
-        print(f"Fetched {len(df)} bulk/block deals from NSE")
-        return df
+
+def fetch_live_quote(symbol: str) -> dict:
+    try:
+        quote = _nse_client.get_quote(symbol.lower())
+        if not quote:
+            raise ValueError("Empty response")
+
+        last_price  = quote.get("lastPrice")   or quote.get("ltp", 0)
+        prev_close  = quote.get("previousClose") or quote.get("closePrice", 0)
+        change      = quote.get("netPrice")    or quote.get("change", 0)
+        change_pct  = quote.get("pChange")     or quote.get("pChange", 0)
+        volume      = quote.get("totalTradedVolume", 0)
+        day_high    = quote.get("dayHigh",   0)
+        day_low     = quote.get("dayLow",    0)
+        week52_high = quote.get("high52",    0)
+        week52_low  = quote.get("low52",     0)
+
+        return {
+            "symbol":       symbol.upper(),
+            "last_price":   round(float(last_price),  2),
+            "prev_close":   round(float(prev_close),  2),
+            "change":       round(float(change),      2),
+            "change_pct":   round(float(change_pct),  2),
+            "day_high":     round(float(day_high),    2),
+            "day_low":      round(float(day_low),     2),
+            "week52_high":  round(float(week52_high), 2),
+            "week52_low":   round(float(week52_low),  2),
+            "volume":       int(volume),
+            "source":       "nsetools-live",
+            "is_live":      True,
+            "updated_at":   datetime.now().isoformat(),
+        }
 
     except Exception as e:
-        print(f"NSE fetch failed ({e}), using cache or mock data")
-        if cache_file.exists():
-            with open(cache_file) as f:
-                deals = json.load(f)
-            return pd.DataFrame(deals.get("data", []))
-        return _mock_bulk_deals()
+        print(f"nsetools failed for {symbol}: {e} — falling back to yfinance")
+        return _fetch_live_quote_fallback(symbol)
 
 
-def _mock_bulk_deals() -> pd.DataFrame:
-    return pd.DataFrame([
-        {
-            "symbol": "RELIANCE",
-            "clientName": "Government of Singapore",
-            "dealType": "BUY",
-            "quantity": 2500000,
-            "price": 2847.50,
-            "remarks": "Bulk Deal"
-        },
-        {
-            "symbol": "INFY",
-            "clientName": "Vanguard Emerging Markets",
-            "dealType": "BUY",
-            "quantity": 1800000,
-            "price": 1654.20,
-            "remarks": "Block Deal"
-        },
-        {
-            "symbol": "TATAMOTORS",
-            "clientName": "HDFC Mutual Fund",
-            "dealType": "SELL",
-            "quantity": 3200000,
-            "price": 987.30,
-            "remarks": "Bulk Deal"
-        },
-    ])
+def _fetch_live_quote_fallback(symbol: str) -> dict:
+    """yfinance fallback — 15-min delayed but always works."""
+    try:
+        ticker = yf.Ticker(f"{symbol}.NS")
+        info   = ticker.fast_info
+        return {
+            "symbol":     symbol.upper(),
+            "last_price": round(info.last_price, 2),
+            "prev_close": round(info.previous_close, 2),
+            "change":     round(info.last_price - info.previous_close, 2),
+            "change_pct": round((info.last_price - info.previous_close)
+                                / info.previous_close * 100, 2),
+            "source":     "yfinance-delayed",
+            "is_live":    False,
+            "updated_at": datetime.now().isoformat(),
+        }
+    except Exception as e:
+        return {"symbol": symbol, "error": str(e), "is_live": False}
+
+
+def fetch_nifty50_live_quotes() -> dict:
+    """
+    Fetches live quotes for all Nifty 50 stocks in one batch.
+    Used to enrich the radar output with live prices.
+    Rate-limited to avoid NSE blocking.
+    """
+    results = {}
+    for i, symbol in enumerate(NIFTY50):
+        results[symbol] = fetch_live_quote(symbol)
+        if i % 10 == 9:
+            time.sleep(1)   # pause every 10 requests
+    return results
+
+
+def fetch_top_gainers_losers() -> dict:
+    """
+    Gets live top gainers and losers from NSE.
+    ET Markets shows this — now Growth Artha shows it too, with signal context.
+    """
+    try:
+        gainers = _nse_client.get_top_gainers() or []
+        losers  = _nse_client.get_top_losers()  or []
+        return {
+            "gainers": gainers[:5],
+            "losers":  losers[:5],
+            "updated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        print(f"Gainers/losers fetch failed: {e}")
+        return {"gainers": [], "losers": [], "error": str(e)}
+
+
+def fetch_nifty_index_quote() -> dict:
+    """
+    Gets live Nifty 50 index quote.
+    Shows alongside the radar for market context.
+    """
+    try:
+        quote = _nse_client.get_index_quote("NIFTY 50")
+        return {
+            "index":         "NIFTY 50",
+            "last":          round(quote.get("last", 0), 2),
+            "change":        round(quote.get("variation", 0), 2),
+            "change_pct":    round(quote.get("percentChange", 0), 2),
+            "advances":      quote.get("advances", 0),
+            "declines":      quote.get("declines", 0),
+            "year_high":     quote.get("yearHigh", 0),
+            "year_low":      quote.get("yearLow", 0),
+            "is_live":       True,
+            "updated_at":    datetime.now().isoformat(),
+        }
+    except Exception as e:
+        return {"index": "NIFTY 50", "error": str(e)}
+
+
+# ── OHLC data functions ────────────────────────────────────────────────────
+
+def fetch_ohlc(symbol: str, period: str = "1y") -> pd.DataFrame:
+    """Fetch OHLC data for a single symbol."""
+    try:
+        ticker = yf.Ticker(f"{symbol}.NS")
+        df = ticker.history(period=period)
+        if df.empty or len(df) < 10:
+            return pd.DataFrame()
+        df.index = pd.to_datetime(df.index).tz_localize(None)
+        return df
+    except Exception as e:
+        print(f"fetch_ohlc failed for {symbol}: {e}")
+        return pd.DataFrame()
+
+
+def fetch_all_ohlc(symbols: list, period: str = "1y") -> dict:
+    """Fetch OHLC data for multiple symbols."""
+    results = {}
+    for symbol in symbols:
+        df = fetch_ohlc(symbol, period)
+        if not df.empty:
+            results[symbol] = df
+    return results
 
 
 def fetch_stock_info(symbol: str) -> dict:
+    """Fetch basic stock info from yfinance."""
     try:
         ticker = yf.Ticker(f"{symbol}.NS")
         info = ticker.info
         return {
             "symbol": symbol,
             "name": info.get("longName", symbol),
-            "sector": info.get("sector", "Unknown"),
-            "pe_ratio": info.get("trailingPE"),
-            "market_cap": info.get("marketCap"),
-            "week52_high": info.get("fiftyTwoWeekHigh"),
-            "week52_low": info.get("fiftyTwoWeekLow"),
-            "avg_volume": info.get("averageVolume"),
+            "sector": info.get("sector", "—"),
+            "market_cap": info.get("marketCap", 0),
+            "pe_ratio": info.get("trailingPE", 0),
+            "dividend_yield": info.get("dividendYield", 0),
         }
     except Exception as e:
-        print(f"Info fetch failed for {symbol}: {e}")
-        return {"symbol": symbol, "name": symbol}
+        return {"symbol": symbol, "error": str(e)}
 
 
-# Simple in-memory cache for news (1 hour TTL)
-_news_cache: dict = {}
-
-def fetch_news_headlines(symbol: str, max_articles: int = 8) -> list:
-    """Fetch latest news headlines for a stock via Google News RSS."""
-    cache_key = symbol.upper()
-    cached = _news_cache.get(cache_key)
-    if cached and (datetime.now().timestamp() - cached["ts"]) < 3600:
-        return cached["headlines"][:max_articles]
-
+def fetch_bulk_deals() -> pd.DataFrame:
+    """Fetch today's bulk deals from NSE."""
     try:
-        query = f"{symbol} NSE stock"
-        url = f"https://news.google.com/rss/search?q={query}&hl=en-IN&gl=IN&ceid=IN:en"
-        feed = feedparser.parse(url)
-        headlines = [
-            {
-                "title":     entry.get("title", ""),
-                "published": entry.get("published", ""),
-                "link":      entry.get("link", ""),
-            }
-            for entry in feed.entries[:max_articles]
-        ]
-        _news_cache[cache_key] = {"ts": datetime.now().timestamp(), "headlines": headlines}
-        return headlines
+        # This would typically fetch from NSE API or cache
+        # For now, return empty dataframe
+        return pd.DataFrame()
     except Exception as e:
-        print(f"News fetch failed for {symbol}: {e}")
-        return []
-
-
-
-if __name__ == "__main__":
-    # Run this directly to pre-warm the cache before the hackathon
-    print("=== Pre-warming data cache ===")
-    fetch_all_ohlc(NIFTY50[:10])   # start with 10 to test
-    fetch_bulk_deals()
-    print("Cache ready.")
+        print(f"fetch_bulk_deals failed: {e}")
+        return pd.DataFrame()

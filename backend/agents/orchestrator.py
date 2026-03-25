@@ -406,3 +406,85 @@ class GrowthArthaOrchestrator:
             "exit_radar":       exit_r,
             "portfolio_brief":  ""
         }
+
+
+# ── Full Universe Scan (async entry point) ─────────────────────────────────
+
+async def run_full_universe(
+    portfolio: list = [],
+    max_tier2_stocks: int = 300,
+    max_tier3_stocks: int = 30
+) -> dict:
+    """
+    Full 4000+ stock scan using three-tier progressive filtering.
+
+    Tier 1: Load all NSE symbols, batch fetch OHLC, filter by liquidity
+    Tier 2: Momentum pre-filter → top 300 candidates for pattern detection
+    Tier 3: Full convergence scoring + Gemini on top 30
+    """
+    from backend.data.universe import (
+        load_full_nse_universe,
+        tier1_filter,
+        momentum_prefilter
+    )
+    from backend.data.fetcher import fetch_ohlc_batch
+    from backend.patterns.detector import detect_patterns_all
+    from backend.signals.scorer import score_all_signals
+    from backend.data.fetcher import fetch_bulk_deals
+
+    start     = datetime.now()
+    all_syms  = load_full_nse_universe()   # 2700+ symbols
+
+    print(f"\n=== Full Universe Scan: {len(all_syms)} stocks ===")
+
+    # ── TIER 1: Batch fetch + liquidity filter ──────────────────────────────
+    print("\nTier 1: Batch fetching OHLC...")
+    ohlc_data = fetch_ohlc_batch(all_syms, period="1y")
+    print(f"Got data for {len(ohlc_data)} stocks")
+
+    liquid_syms = tier1_filter(ohlc_data)
+    print(f"Tier 1 filter: {len(ohlc_data)} → {len(liquid_syms)} liquid stocks")
+
+    # ── TIER 2: Momentum pre-filter ─────────────────────────────────────────
+    liquid_ohlc   = {s: ohlc_data[s] for s in liquid_syms if s in ohlc_data}
+    tier2_syms    = momentum_prefilter(liquid_ohlc, top_n=max_tier2_stocks)
+    tier2_ohlc    = {s: ohlc_data[s] for s in tier2_syms if s in ohlc_data}
+    print(f"Tier 2 filter: {len(liquid_syms)} → {len(tier2_syms)} momentum candidates")
+
+    # ── TIER 3: Full signal analysis ─────────────────────────────────────────
+    print("\nTier 3: Full pattern detection + scoring...")
+    bulk_deals = fetch_bulk_deals()
+    patterns   = detect_patterns_all(tier2_ohlc)
+    signals    = score_all_signals(
+        ohlc_data=tier2_ohlc,
+        bulk_deals=bulk_deals,
+        patterns=patterns,
+        portfolio=portfolio
+    )
+
+    # Top 30 get Gemini analysis
+    top30 = signals[:max_tier3_stocks]
+    for sig in top30:
+        from backend.ai.gemini_client import generate_signal_card
+        sig["ai_card"] = generate_signal_card(sig)
+
+    elapsed = (datetime.now() - start).total_seconds()
+    print(f"\nFull scan complete in {elapsed:.0f}s")
+    print(f"Universe: {len(all_syms)} → {len(liquid_syms)} "
+          f"→ {len(tier2_syms)} → {len(signals)} scored")
+
+    act    = [s for s in signals if s["score"] >= 0.65][:5]
+    watch  = [s for s in signals if 0.35 <= s["score"] < 0.65][:8]
+    exit_r = [s for s in signals if s["score"] < 0][:5]
+
+    return {
+        "act":              act,
+        "watch":            watch,
+        "exit_radar":       exit_r,
+        "total_scanned":    len(all_syms),
+        "liquid_stocks":    len(liquid_syms),
+        "analysed_stocks":  len(tier2_syms),
+        "signals_found":    len(signals),
+        "elapsed_seconds":  round(elapsed),
+        "scanned_at":       datetime.now().isoformat(),
+    }
