@@ -18,14 +18,11 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS — allows React on :5173 to talk to FastAPI on :8000
+# CORS — open for all origins in dev (tighten for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", "http://127.0.0.1:5173",
-        "http://localhost:5174", "http://127.0.0.1:5174",
-    ],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -45,4 +42,4 @@ def health():
     return {"status": "healthy"}
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8002, reload=True)

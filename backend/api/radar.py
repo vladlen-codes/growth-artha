@@ -183,7 +183,6 @@ async def _run_radar_job(job_id: str, request: RadarRequest):
             return
 
         _jobs[job_id] = {"status": "error", "result": None, "error": str(e)}
-        raise
 
 
 @router.get("/audit/{job_id}")
