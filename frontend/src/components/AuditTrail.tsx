@@ -2,66 +2,224 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../api/client'
 
+interface ToolCall {
+  tool:           string
+  status:         'success' | 'error'
+  result_summary: string
+  elapsed_ms:     number
+}
+
+interface AuditData {
+  tool_calls?:      ToolCall[]
+  audit_log?:       any[]
+  elapsed_seconds?: number
+}
+
 interface Props { jobId: string }
 
 export default function AuditTrail({ jobId }: Props) {
   const [open, setOpen] = useState(false)
 
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery<AuditData>({
     queryKey: ['audit', jobId],
     queryFn:  () => api.get(`/api/radar/audit/${jobId}`).then(r => r.data),
     enabled:  !!jobId && open,
+    staleTime: Infinity,
   })
 
+  const toolCalls = data?.tool_calls ?? []
+  const successCount = toolCalls.filter(c => c.status === 'success').length
+  const errorCount   = toolCalls.filter(c => c.status === 'error').length
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-4">
+    <div
+      className="animate-fade-in-up mt-2"
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 14,
+        boxShadow: 'var(--shadow-card)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Toggle header */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-2.5 px-5 py-3.5
-                   hover:bg-gray-50 transition-colors"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '14px 20px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          transition: 'background 0.15s',
+          textAlign: 'left',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'var(--gray-50)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
       >
-        <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
-        <span className="text-[13px] font-semibold text-gray-800">
+        {/* Purple dot */}
+        <div
+          style={{
+            width: 8, height: 8,
+            borderRadius: '50%',
+            background: '#9061F9',
+            boxShadow: '0 0 0 3px rgba(144, 97, 249, 0.15)',
+            flexShrink: 0,
+          }}
+        />
+
+        <span
+          className="font-semibold text-[13px]"
+          style={{ color: 'var(--gray-800)' }}
+        >
           Agent reasoning trail
         </span>
-        <span className="text-[12px] text-gray-400">
-          — every decision the agents made
+        <span className="text-[12px]" style={{ color: 'var(--gray-400)' }}>
+          — every decision the AI agents made
         </span>
-        <span className="ml-auto text-gray-300 text-sm">
+
+        {/* Summary badges */}
+        {toolCalls.length > 0 && (
+          <div className="flex items-center gap-1.5 ml-2">
+            <span
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: '#EDFAF4', color: '#0A7A4A' }}
+            >
+              {successCount} ok
+            </span>
+            {errorCount > 0 && (
+              <span
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#FEF3F2', color: '#B42318' }}
+              >
+                {errorCount} err
+              </span>
+            )}
+          </div>
+        )}
+
+        <span
+          className="ml-auto text-[12px]"
+          style={{ color: 'var(--gray-300)' }}
+        >
           {open ? '▲' : '▼'}
         </span>
       </button>
 
+      {/* Expanded content */}
       {open && (
-        <div className="border-t border-gray-100">
-          {data?.tool_calls?.length ? (
-            <div className="divide-y divide-gray-50">
-              {data.tool_calls.map((call: any, i: number) => (
-                <div key={i}
-                     className="flex items-center gap-3 px-5 py-2.5 text-[11px]">
-                  <span className={`font-bold px-1.5 py-0.5 rounded-[3px]
-                                    min-w-[28px] text-center text-[10px]
-                    ${call.status === 'success'
-                      ? 'bg-[#F0FDF8] text-[#065F46]'
-                      : 'bg-[#FEF2F2] text-[#991B1B]'
-                    }`}>
-                    {call.status === 'success' ? 'OK' : 'ERR'}
+        <div
+          style={{
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          {isLoading ? (
+            <div
+              className="px-5 py-4 text-[12px]"
+              style={{ color: 'var(--gray-400)' }}
+            >
+              Loading agent log…
+            </div>
+          ) : toolCalls.length === 0 ? (
+            <div
+              className="px-5 py-6 text-center text-[12px]"
+              style={{ color: 'var(--gray-400)' }}
+            >
+              No tool calls recorded for this scan.
+            </div>
+          ) : (
+            <div>
+              {/* Table header */}
+              <div
+                className="grid font-semibold text-[10px] uppercase tracking-wider px-5 py-2"
+                style={{
+                  gridTemplateColumns: '52px 180px 1fr 64px',
+                  background: 'var(--gray-50)',
+                  color: 'var(--gray-400)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <span>Status</span>
+                <span>Tool</span>
+                <span>Result</span>
+                <span className="text-right">Time</span>
+              </div>
+
+              {/* Rows */}
+              {toolCalls.map((call, i) => (
+                <div
+                  key={i}
+                  className="grid items-center px-5 py-2.5 text-[11px]"
+                  style={{
+                    gridTemplateColumns: '52px 180px 1fr 64px',
+                    borderBottom: i < toolCalls.length - 1
+                      ? '1px solid var(--gray-50)' : 'none',
+                    background: 'transparent',
+                  }}
+                >
+                  {/* Status badge */}
+                  <span
+                    className="font-bold text-[10px] px-1.5 py-0.5 rounded-md inline-block w-fit"
+                    style={{
+                      background: call.status === 'success' ? '#EDFAF4' : '#FEF3F2',
+                      color:      call.status === 'success' ? '#0A7A4A' : '#B42318',
+                    }}
+                  >
+                    {call.status === 'success' ? '✓ OK' : '✗ ERR'}
                   </span>
-                  <span className="font-mono text-gray-500 min-w-[160px]">
+
+                  {/* Tool name */}
+                  <span
+                    className="font-mono truncate pr-2"
+                    style={{ color: 'var(--gray-500)' }}
+                    title={call.tool}
+                  >
                     {call.tool}
                   </span>
-                  <span className="text-gray-700 flex-1">
+
+                  {/* Summary */}
+                  <span
+                    className="truncate pr-2"
+                    style={{ color: 'var(--gray-700)' }}
+                    title={call.result_summary}
+                  >
                     {call.result_summary}
                   </span>
-                  <span className="text-gray-300 tabular-nums">
+
+                  {/* Elapsed */}
+                  <span
+                    className="tabular-nums text-right"
+                    style={{ color: 'var(--gray-400)' }}
+                  >
                     {call.elapsed_ms}ms
                   </span>
                 </div>
               ))}
-            </div>
-          ) : (
-            <div className="px-5 py-4 text-[12px] text-gray-400">
-              Loading agent log...
+
+              {/* Footer summary */}
+              {data?.elapsed_seconds && (
+                <div
+                  className="px-5 py-2.5 flex items-center gap-2 text-[11px]"
+                  style={{
+                    borderTop: '1px solid var(--border)',
+                    color: 'var(--gray-400)',
+                    background: 'var(--gray-50)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6, height: 6,
+                      borderRadius: '50%',
+                      background: '#9061F9',
+                      display: 'inline-block',
+                    }}
+                  />
+                  {toolCalls.length} tool calls · {data.elapsed_seconds}s total
+                </div>
+              )}
             </div>
           )}
         </div>

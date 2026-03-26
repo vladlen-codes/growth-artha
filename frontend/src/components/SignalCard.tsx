@@ -13,137 +13,204 @@ interface Props {
   signal:  Signal
   variant: 'act' | 'watch' | 'exit'
   onClick: () => void
+  index?:  number
 }
 
-const TAG_STYLES: Record<string, string> = {
-  'FII Buy':           'bg-[#F0FDF8] text-[#065F46] border border-[#A7F3D0]',
-  'Inst. Buy':         'bg-[#F0FDF8] text-[#065F46] border border-[#A7F3D0]',
-  '52W High':          'bg-[#F0FDF8] text-[#065F46] border border-[#A7F3D0]',
-  'Earnings Beat':     'bg-[#F0FDF8] text-[#065F46] border border-[#A7F3D0]',
-  '52W High Breakout': 'bg-[#F0FDF8] text-[#065F46] border border-[#A7F3D0]',
-  'Double Bottom':     'bg-[#FAF5FF] text-[#6B21A8] border border-[#D8B4FE]',
-  'Bullish RSI Divergence': 'bg-[#FAF5FF] text-[#6B21A8] border border-[#D8B4FE]',
-  'Support Test':      'bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE]',
-  'Resistance Test':   'bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE]',
-  'Vol Spike':         'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]',
-  'FII Sell':          'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]',
-  'Double Top':        'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]',
-  'Bearish RSI Divergence': 'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]',
-  'Earnings Miss':     'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]',
-  'Pledge Up':         'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]',
+const TAG_STYLES: Record<string, { bg: string; text: string; border: string }> = {
+  'FII Buy':                { bg: '#EDFAF4', text: '#0A7A4A', border: '#A3F0CB' },
+  'Inst. Buy':              { bg: '#EDFAF4', text: '#0A7A4A', border: '#A3F0CB' },
+  '52W High':               { bg: '#EDFAF4', text: '#0A7A4A', border: '#A3F0CB' },
+  'Earnings Beat':          { bg: '#EDFAF4', text: '#0A7A4A', border: '#A3F0CB' },
+  '52W High Breakout':      { bg: '#EDFAF4', text: '#0A7A4A', border: '#A3F0CB' },
+  'Double Bottom':          { bg: '#F9F5FF', text: '#6941C6', border: '#D6BBFB' },
+  'Bullish RSI Divergence': { bg: '#F9F5FF', text: '#6941C6', border: '#D6BBFB' },
+  'Support Test':           { bg: '#EFF8FF', text: '#1849A9', border: '#B2DDFF' },
+  'Resistance Test':        { bg: '#EFF8FF', text: '#1849A9', border: '#B2DDFF' },
+  'Vol Spike':              { bg: '#FFFBEB', text: '#92400E', border: '#FDE68A' },
+  'FII Sell':               { bg: '#FEF3F2', text: '#B42318', border: '#FECDCA' },
+  'Double Top':             { bg: '#FEF3F2', text: '#B42318', border: '#FECDCA' },
+  'Bearish RSI Divergence': { bg: '#FEF3F2', text: '#B42318', border: '#FECDCA' },
+  'Earnings Miss':          { bg: '#FEF3F2', text: '#B42318', border: '#FECDCA' },
+  'Pledge Up':              { bg: '#FEF3F2', text: '#B42318', border: '#FECDCA' },
 }
 
-const DEFAULT_TAG = 'bg-gray-100 text-gray-600 border border-gray-200'
-
-const FILL_COLOR = {
-  act:   'bg-[#1D9E75]',
-  watch: 'bg-[#F59E0B]',
-  exit:  'bg-[#EF4444]',
+const SCORE_CONFIG = {
+  act:   { color: '#16C97B', barBg: 'linear-gradient(90deg, #16C97B, #0EA063)' },
+  watch: { color: '#D97706', barBg: 'linear-gradient(90deg, #F59E0B, #D97706)' },
+  exit:  { color: '#F04438', barBg: 'linear-gradient(90deg, #F04438, #D92D20)' },
 }
 
-const SCORE_COLOR = {
-  act:   'text-[#1D9E75]',
-  watch: 'text-[#D97706]',
-  exit:  'text-[#EF4444]',
-}
-
-export default function SignalCard({ signal, variant, onClick }: Props) {
+export default function SignalCard({ signal, variant, onClick, index = 0 }: Props) {
   const isPositive  = signal.price_change_pct >= 0
   const isHolding   = signal.portfolio_tag === 'holding'
   const isSector    = signal.portfolio_tag === 'sector'
   const absScore    = Math.abs(signal.score)
-  const scoreWidth  = Math.round(absScore * 100)
+  const scoreWidth  = Math.min(Math.round(absScore * 100), 100)
+  const cfg         = SCORE_CONFIG[variant]
 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-4 px-5 py-4
-                 hover:bg-gray-50/70 transition-colors text-left group
-                 border-b border-gray-100 last:border-0"
+      className="w-full text-left group"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        padding: '14px 20px',
+        background: 'transparent',
+        cursor: 'pointer',
+        transition: 'background 0.15s',
+        borderBottom: '1px solid var(--border)',
+        animationDelay: `${index * 0.04}s`,
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLButtonElement).style.background = 'var(--gray-50)'
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+      }}
     >
       {/* Symbol + price */}
-      <div className="min-w-[108px]">
-        <div className="font-bold text-[14px] text-gray-900
-                        tracking-tight mb-1">
-          {signal.symbol}
+      <div style={{ minWidth: 110 }}>
+        <div className="flex items-center gap-1.5 mb-1">
+          <span
+            className="font-bold text-[14px] tracking-tight"
+            style={{ color: 'var(--gray-900)' }}
+          >
+            {signal.symbol}
+          </span>
+          {isHolding && (
+            <span
+              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{
+                background: 'var(--brand-light)',
+                color: 'var(--brand-deeper)',
+                border: '1px solid var(--brand-border)',
+                letterSpacing: '0.04em',
+              }}
+            >
+              HOLDING
+            </span>
+          )}
+          {isSector && (
+            <span
+              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{
+                background: '#EFF8FF',
+                color: '#1849A9',
+                border: '1px solid #B2DDFF',
+                letterSpacing: '0.04em',
+              }}
+            >
+              SECTOR
+            </span>
+          )}
         </div>
-        <div className={`text-[12px] font-semibold
-          ${isPositive ? 'text-[#1D9E75]' : 'text-[#EF4444]'}`}>
-          ₹{signal.last_price.toLocaleString('en-IN')}
+        <div
+          className="font-semibold text-[12px] tabular-nums"
+          style={{ color: isPositive ? 'var(--brand-green)' : 'var(--red)' }}
+        >
+          ₹{signal.last_price?.toLocaleString('en-IN')}
           <span className="ml-1.5 font-medium">
             {isPositive ? '+' : ''}{signal.price_change_pct}%
           </span>
         </div>
       </div>
 
-      {/* Score + tags + AI preview */}
-      <div className="flex-1 min-w-0">
+      {/* Score + bar + tags */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Score + bar */}
         <div className="flex items-center gap-2.5 mb-2">
-          <span className={`font-bold text-[13px] tabular-nums
-                            min-w-[42px] text-right ${SCORE_COLOR[variant]}`}>
+          <span
+            className="font-bold text-[13px] tabular-nums"
+            style={{ color: cfg.color, minWidth: 40, textAlign: 'right' }}
+          >
             {signal.score > 0 ? '+' : ''}{signal.score}
           </span>
-          <div className="flex-1 h-[3px] bg-gray-100 rounded-full overflow-hidden">
+          <div
+            style={{
+              flex: 1,
+              height: 4,
+              background: 'var(--gray-100)',
+              borderRadius: 99,
+              overflow: 'hidden',
+            }}
+          >
             <div
-              className={`h-full rounded-full ${FILL_COLOR[variant]}`}
-              style={{ width: `${scoreWidth}%` }}
+              style={{
+                height: '100%',
+                width: `${scoreWidth}%`,
+                background: cfg.barBg,
+                borderRadius: 99,
+                transition: 'width 0.5s ease',
+              }}
             />
           </div>
-          <span className="text-[11px] text-gray-400 whitespace-nowrap">
-            {signal.signal_count} signal{signal.signal_count !== 1 ? 's' : ''}
+          <span
+            className="text-[10px] font-medium whitespace-nowrap"
+            style={{ color: 'var(--gray-400)' }}
+          >
+            {signal.signal_count} sig{signal.signal_count !== 1 ? 's' : ''}
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-1.5 mb-1.5">
-          {signal.tags.slice(0, 4).map(tag => (
-            <span
-              key={tag}
-              className={`text-[11px] font-semibold px-2 py-0.5
-                          rounded-[4px] leading-tight
-                          ${TAG_STYLES[tag] || DEFAULT_TAG}`}
-            >
-              {tag}
-            </span>
-          ))}
-          {isHolding && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5
-                             rounded-[4px] bg-[#ECFDF5] text-[#064E3B]
-                             border border-[#6EE7B7] leading-tight">
-              Holding
-            </span>
-          )}
-          {isSector && (
-            <span className="text-[10px] font-bold px-1.5 py-0.5
-                             rounded-[4px] bg-[#EFF6FF] text-[#1E3A8A]
-                             border border-[#BFDBFE] leading-tight">
-              Sector
-            </span>
-          )}
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1">
+          {signal.tags.slice(0, 4).map(tag => {
+            const ts = TAG_STYLES[tag]
+            return (
+              <span
+                key={tag}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background: ts?.bg ?? 'var(--gray-100)',
+                  color: ts?.text ?? 'var(--gray-600)',
+                  border: `1px solid ${ts?.border ?? 'var(--gray-200)'}`,
+                }}
+              >
+                {tag}
+              </span>
+            )
+          })}
         </div>
 
+        {/* AI card preview */}
         {signal.ai_card && (
-          <p className="text-[11px] text-gray-400 truncate max-w-[420px]">
+          <p
+            className="text-[11px] mt-1.5 truncate"
+            style={{ color: 'var(--gray-400)', maxWidth: 400 }}
+          >
             {signal.ai_card}
           </p>
         )}
       </div>
 
-      {/* Right side */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {isHolding && (
-          <span className="text-[10px] font-bold px-2 py-1
-                           rounded-full bg-[#F0FDF8] text-[#065F46]
-                           border border-[#A7F3D0] whitespace-nowrap">
-            In portfolio
-          </span>
-        )}
-        <div className="w-7 h-7 rounded-[7px] border border-gray-200
-                        flex items-center justify-center text-gray-400
-                        text-sm transition-all
-                        group-hover:bg-[#1D9E75] group-hover:border-[#1D9E75]
-                        group-hover:text-white">
-          →
-        </div>
+      {/* Right arrow */}
+      <div
+        className="flex-shrink-0 flex items-center justify-center"
+        style={{
+          width: 30,
+          height: 30,
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          color: 'var(--gray-400)',
+          fontSize: 14,
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => {
+          const el = e.currentTarget as HTMLDivElement
+          el.style.background = cfg.color
+          el.style.borderColor = cfg.color
+          el.style.color = '#fff'
+        }}
+        onMouseLeave={e => {
+          const el = e.currentTarget as HTMLDivElement
+          el.style.background = 'transparent'
+          el.style.borderColor = 'var(--border)'
+          el.style.color = 'var(--gray-400)'
+        }}
+      >
+        →
       </div>
     </button>
   )
