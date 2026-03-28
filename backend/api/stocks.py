@@ -1,9 +1,34 @@
 import yfinance as yf
+import pandas as pd
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from backend.data.fetcher import fetch_ohlc, fetch_stock_info
 
 router = APIRouter()
+
+
+# ── IMPORTANT: /market/... routes MUST come before /{symbol}/... wildcards ──
+
+@router.get("/market/overview")
+def get_market_overview():
+    """
+    Live Nifty 50 index + top gainers + top losers.
+    """
+    from backend.data.fetcher import (
+        fetch_nifty_index_quote,
+        fetch_top_gainers_losers
+    )
+    nifty = fetch_nifty_index_quote()
+    gl    = fetch_top_gainers_losers()
+    return {
+        "nifty50":    nifty,
+        "gainers":    gl["gainers"],
+        "losers":     gl["losers"],
+        "updated_at": datetime.now().isoformat()
+    }
+
+
+# ── Per-symbol routes ────────────────────────────────────────────────────────
 
 @router.get("/{symbol}/ohlc")
 def get_ohlc(symbol: str, days: int = 90):
@@ -15,11 +40,11 @@ def get_ohlc(symbol: str, days: int = 90):
         "symbol": symbol,
         "data": [
             {
-                "time": row["Date"].strftime("%Y-%m-%d"),
-                "open":  round(row["Open"], 2),
-                "high":  round(row["High"], 2),
-                "low":   round(row["Low"], 2),
-                "close": round(row["Close"], 2),
+                "time":   row["Date"].strftime("%Y-%m-%d"),
+                "open":   round(row["Open"],   2),
+                "high":   round(row["High"],   2),
+                "low":    round(row["Low"],    2),
+                "close":  round(row["Close"],  2),
                 "volume": int(row["Volume"])
             }
             for _, row in df_trimmed.iterrows()
@@ -37,7 +62,6 @@ def explain_signal(symbol: str):
     signal = get_signal_for_symbol(symbol.upper())
     if not signal:
         raise HTTPException(status_code=404, detail="No active signal for this stock")
-
     explanation = generate_explanation(symbol, signal)
     return {"symbol": symbol, "explanation": explanation}
 
@@ -48,30 +72,6 @@ def get_sentiment(symbol: str, force_refresh: bool = False):
 
 @router.get("/{symbol}/price")
 def get_live_price(symbol: str):
-    """
-    Real-time NSE price via nsetools.
-    Falls back to yfinance if NSE blocks the request.
-    No more 15-min delay badge — this is live.
-    """
+    """Real-time NSE price via nsetools, falls back to yfinance."""
     from backend.data.fetcher import fetch_live_quote
     return fetch_live_quote(symbol.upper())
-
-
-@router.get("/market/overview")
-def get_market_overview():
-    """
-    Live Nifty 50 index + top gainers + top losers.
-    ET Markets shows this — Growth Artha shows it WITH signal context.
-    """
-    from backend.data.fetcher import (
-        fetch_nifty_index_quote,
-        fetch_top_gainers_losers
-    )
-    nifty  = fetch_nifty_index_quote()
-    gl     = fetch_top_gainers_losers()
-    return {
-        "nifty50": nifty,
-        "gainers": gl["gainers"],
-        "losers":  gl["losers"],
-        "updated_at": datetime.now().isoformat()
-    }

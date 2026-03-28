@@ -232,17 +232,17 @@ def _score_events(symbol: str, df: pd.DataFrame, bulk_deals: pd.DataFrame) -> li
     if ret_3m > 0.20:    # >20% in 3 months — likely earnings beat
         signals.append({
             "name": "earnings_surprise_15",
-            "weight": EVENT_WEIGHTS["earnings_surprise_15"],
-            "evidence": f"{ret_3m*100:.1f}% return over 3 months "
-                       f"— likely earnings outperformance",
+            "weight": EVENT_WEIGHTS["earnings_surprise_15"] * 0.8,  # discounted — proxy signal
+            "evidence": f"Price up {ret_3m*100:.1f}% over 3 months (momentum proxy for earnings beat — "
+                       f"check actual results for confirmation)",
             "source": "Price Momentum Proxy"
         })
     elif ret_3m < -0.15:  # >15% drop — likely earnings miss
         signals.append({
             "name": "earnings_miss",
-            "weight": EVENT_WEIGHTS["earnings_miss"],
-            "evidence": f"{ret_3m*100:.1f}% decline over 3 months "
-                       f"— potential earnings underperformance",
+            "weight": EVENT_WEIGHTS["earnings_miss"] * 0.8,  # discounted — proxy signal
+            "evidence": f"Price down {abs(ret_3m)*100:.1f}% over 3 months (momentum proxy — "
+                       f"verify earnings data before acting)",
             "source": "Price Momentum Proxy"
         })
 

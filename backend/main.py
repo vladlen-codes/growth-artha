@@ -1,9 +1,28 @@
 import uvicorn
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from backend.api import radar, stocks, portfolio, chat
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+
+class PermissiveCORSMiddleware(BaseHTTPMiddleware):
+    """
+    Dead-simple CORS middleware that works regardless of Starlette version quirks.
+    Always returns Access-Control-Allow-Origin: * for every request.
+    """
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "OPTIONS":
+            response = JSONResponse(content={}, status_code=200)
+        else:
+            response = await call_next(request)
+
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        return response
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,14 +37,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS — open for all origins in dev (tighten for production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(PermissiveCORSMiddleware)
 
 # Routers — each file handles one domain
 app.include_router(radar.router,     prefix="/api/radar",     tags=["Radar"])
