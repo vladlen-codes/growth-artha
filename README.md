@@ -149,5 +149,5 @@ See the full setup guide for macOS and Windows in:
 
 ## License
 
-No explicit license file is included at the repository root yet.
-Add a `LICENSE` file if you plan public distribution.
+This project is licensed under the BSD 2-Clause License.
+See the LICENSE file for full terms.
