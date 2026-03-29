@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getStockInfo, explainSignal } from '../api/enpoints'
+import { getStockInfo, explainSignal, getPatternBacktest } from '../api/enpoints'
 import { useLivePrice } from '../hooks/useLivePrice'
 import CandlestickChart from '../components/CandlestickChart'
 import SentimentCard from '../components/SentimentCard'
-import SignalExplainer from '../components/SignalExplainer'
 import { useRadarStore } from '../store/radarStore'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
@@ -25,17 +24,35 @@ export default function StockDetail({ symbol, onBack }: Props) {
   const { result } = useRadarStore()
   const { price, changePct, updatedAt } = useLivePrice(symbol)
 
+  const asArray = <T,>(value: unknown): T[] => (Array.isArray(value) ? value : [])
+
+  const toFiniteNumber = (value: unknown): number | null => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null
+    if (typeof value === 'string' && value.trim() !== '') {
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : null
+    }
+    return null
+  }
+
+  const actSignals = asArray<any>(result?.act)
+  const watchSignals = asArray<any>(result?.watch)
+  const exitSignals = asArray<any>(result?.exit_radar)
+
   // Find this stock's signal from radar result
   const signal = [
-    ...(result?.act        || []),
-    ...(result?.watch      || []),
-    ...(result?.exit_radar || []),
+    ...actSignals,
+    ...watchSignals,
+    ...exitSignals,
   ].find(s => s.symbol === symbol)
 
+  const signalTags = asArray<string>(signal?.tags)
+  const signalPatterns = asArray<any>(signal?.patterns)
+
   const variant: 'act' | 'watch' | 'exit' | null =
-    result?.act?.find((s: any) => s.symbol === symbol) ? 'act' :
-    result?.watch?.find((s: any) => s.symbol === symbol) ? 'watch' :
-    result?.exit_radar?.find((s: any) => s.symbol === symbol) ? 'exit' : null
+    actSignals.find((s: any) => s.symbol === symbol) ? 'act' :
+    watchSignals.find((s: any) => s.symbol === symbol) ? 'watch' :
+    exitSignals.find((s: any) => s.symbol === symbol) ? 'exit' : null
 
   const variantColor = variant === 'act' ? '#16C97B'
     : variant === 'watch' ? '#D97706'
@@ -52,6 +69,12 @@ export default function StockDetail({ symbol, onBack }: Props) {
     queryKey: ['explain', symbol],
     queryFn:  () => explainSignal(symbol).then(r => r.data),
     enabled:  !!signal,
+  })
+
+  const { data: backtest } = useQuery({
+    queryKey: ['pattern-backtest', symbol],
+    queryFn: () => getPatternBacktest(symbol).then(r => r.data),
+    staleTime: 1000 * 60 * 60 * 6,
   })
 
   const TABS: { id: Tab; label: string; icon: any }[] = [
@@ -129,7 +152,7 @@ export default function StockDetail({ symbol, onBack }: Props) {
           {/* Right: live price */}
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--gray-900)', letterSpacing: '-0.02em' }}>
-              {price ? `₹${price.toLocaleString('en-IN')}` : '—'}
+              {price ? `₹${price.toLocaleString('en-IN')}` : '-'}
             </div>
             {changePct !== null && (
               <div style={{
@@ -156,10 +179,34 @@ export default function StockDetail({ symbol, onBack }: Props) {
             marginTop: 18, paddingTop: 18, borderTop: '1px solid var(--border)',
           }}>
             {[
-              { label: 'P/E Ratio',   value: info.pe_ratio ? info.pe_ratio.toFixed(1) : '—' },
-              { label: 'P/B Ratio',   value: info.pb_ratio ? info.pb_ratio.toFixed(2) : '—' },
-              { label: '52W High',    value: info.week52_high ? `₹${info.week52_high.toLocaleString('en-IN')}` : '—' },
-              { label: '52W Low',     value: info.week52_low  ? `₹${info.week52_low.toLocaleString('en-IN')}`  : '—' },
+              {
+                label: 'P/E Ratio',
+                value: (() => {
+                  const pe = toFiniteNumber(info.pe_ratio)
+                  return pe !== null ? pe.toFixed(1) : '-'
+                })(),
+              },
+              {
+                label: 'P/B Ratio',
+                value: (() => {
+                  const pb = toFiniteNumber(info.pb_ratio)
+                  return pb !== null ? pb.toFixed(2) : '-'
+                })(),
+              },
+              {
+                label: '52W High',
+                value: (() => {
+                  const high = toFiniteNumber(info.week52_high)
+                  return high !== null ? `₹${high.toLocaleString('en-IN')}` : '-'
+                })(),
+              },
+              {
+                label: '52W Low',
+                value: (() => {
+                  const low = toFiniteNumber(info.week52_low)
+                  return low !== null ? `₹${low.toLocaleString('en-IN')}` : '-'
+                })(),
+              },
             ].map(f => (
               <div key={f.label}>
                 <div style={{ fontSize: 10, color: 'var(--gray-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>
@@ -192,7 +239,7 @@ export default function StockDetail({ symbol, onBack }: Props) {
               </span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 4 }}>
-              {signal.tags?.slice(0, 5).map((tag: string) => (
+              {signalTags.slice(0, 5).map((tag: string) => (
                 <span
                   key={tag}
                   style={{
@@ -251,7 +298,13 @@ export default function StockDetail({ symbol, onBack }: Props) {
 
         <div style={{ padding: 24 }}>
           {tab === 'chart' && (
-            <CandlestickChart symbol={symbol} patterns={signal?.patterns || []} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <CandlestickChart symbol={symbol} patterns={signalPatterns} />
+              <PatternSuccessPanel
+                patterns={signalPatterns}
+                backtest={backtest?.patterns}
+              />
+            </div>
           )}
           {tab === 'signals' && (
             <SignalBreakdown
@@ -269,7 +322,125 @@ export default function StockDetail({ symbol, onBack }: Props) {
   )
 }
 
-// ── Signal Breakdown Panel ───────────────────────────────────────────────────
+function PatternSuccessPanel({ patterns, backtest }: { patterns: any[]; backtest?: Record<string, any> }) {
+  const patternNames = Array.from(
+    new Set(
+      (Array.isArray(patterns) ? patterns : [])
+        .map((p: any) => p?.pattern_detail?.pattern || p?.pattern || p?.name)
+        .filter((v: any) => typeof v === 'string' && v.trim() !== '')
+        .map((v: string) =>
+          v.startsWith('pattern_')
+            ? v.replace(/^pattern_/, '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+            : v
+        )
+    )
+  )
+
+  if (!patternNames.length) return null
+
+  return (
+    <div
+      style={{
+        background: 'var(--gray-50)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        padding: 14,
+      }}
+    >
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+        Historical Pattern Success ({patternNames.length})
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+        {patternNames.map((name) => {
+          const bt = backtest?.[name]
+          const hasData = bt && bt.win_rate_pct !== null && bt.win_rate_pct !== undefined
+          const win = hasData ? Number(bt.win_rate_pct).toFixed(1) : 'N/A'
+          const instances = hasData ? bt.instances : 0
+          const confidence = hasData ? (bt.confidence_band || 'low') : 'insufficient'
+          const horizon = hasData ? Number(bt.expected_horizon_days || bt.forward_days || 20) : 20
+          const medianMove = hasData && bt.median_move_pct !== null && bt.median_move_pct !== undefined
+            ? Number(bt.median_move_pct).toFixed(2)
+            : 'N/A'
+          const p25 = hasData && bt.p25_move_pct !== null && bt.p25_move_pct !== undefined
+            ? Number(bt.p25_move_pct).toFixed(2)
+            : 'N/A'
+          const p75 = hasData && bt.p75_move_pct !== null && bt.p75_move_pct !== undefined
+            ? Number(bt.p75_move_pct).toFixed(2)
+            : 'N/A'
+          const similar = hasData && Array.isArray(bt.similar_instances)
+            ? bt.similar_instances.slice(-2)
+            : []
+          const lowSample = Number(instances) > 0 && Number(instances) < 8
+          return (
+            <div
+              key={name}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '10px 12px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-800)' }}>{name}</div>
+                {lowSample && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: 'var(--amber-dark)',
+                      background: 'var(--amber-light)',
+                      border: '1px solid var(--amber-border)',
+                      borderRadius: 999,
+                      padding: '2px 6px',
+                    }}
+                  >
+                    low sample
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: hasData ? 'var(--brand-dark)' : 'var(--gray-500)' }}>
+                  {win}{hasData ? '%' : ''}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>win rate</span>
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--gray-500)' }}>
+                {instances} instances · {confidence} confidence
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 4 }}>
+                Expected horizon: {horizon}d · median move: {medianMove}{medianMove !== 'N/A' ? '%' : ''}
+              </div>
+              {p25 !== 'N/A' && p75 !== 'N/A' && (
+                <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 2 }}>
+                  Typical range: {p25}% to {p75}%
+                </div>
+              )}
+              {similar.length > 0 && (
+                <div style={{ marginTop: 8, borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                    Similar Instances
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {similar.map((row: any, idx: number) => {
+                      const dt = row?.date ? new Date(row.date).toLocaleDateString() : 'Unknown date'
+                      const mv = Number.isFinite(Number(row?.return_pct)) ? Number(row.return_pct).toFixed(2) : 'N/A'
+                      return (
+                        <div key={`${name}-sim-${idx}`} style={{ fontSize: 11, color: 'var(--gray-600)' }}>
+                          {dt}: {mv}{mv !== 'N/A' ? '%' : ''}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function SignalBreakdown({ signal, explanation, explainLoading }: {
   signal: any
@@ -280,14 +451,18 @@ function SignalBreakdown({ signal, explanation, explainLoading }: {
     return (
       <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--gray-400)' }}>
         <div style={{ fontSize: 32, marginBottom: 8 }}>📡</div>
-        <p style={{ fontSize: 13 }}>No signal data yet — run a Radar scan first</p>
+        <p style={{ fontSize: 13 }}>No signal data yet - run a Radar scan first</p>
       </div>
     )
   }
 
-  const allSignals: any[] = signal.signals || []
-  const positive = allSignals.filter((s: any) => s.weight >= 0)
-  const negative = allSignals.filter((s: any) => s.weight < 0)
+  const allSignals: any[] = Array.isArray(signal.signals) ? signal.signals : []
+  const weightOf = (s: any) => {
+    const n = Number(s?.weight)
+    return Number.isFinite(n) ? n : 0
+  }
+  const positive = allSignals.filter((s: any) => weightOf(s) >= 0)
+  const negative = allSignals.filter((s: any) => weightOf(s) < 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -369,6 +544,11 @@ function SignalBreakdown({ signal, explanation, explainLoading }: {
 function SignalRow({ signal, isPositive }: { signal: any; isPositive: boolean }) {
   const color = isPositive ? '#16C97B' : '#F04438'
   const bg    = isPositive ? '#EDFAF4' : '#FEF3F2'
+  const weight = Number(signal?.weight)
+  const safeWeight = Number.isFinite(weight) ? weight : 0
+  const safeName = typeof signal?.name === 'string' ? signal.name : 'unknown_signal'
+  const safeEvidence = typeof signal?.evidence === 'string' ? signal.evidence : 'No details available.'
+  const safeSource = typeof signal?.source === 'string' ? signal.source : null
 
   return (
     <div style={{
@@ -386,26 +566,24 @@ function SignalRow({ signal, isPositive }: { signal: any; isPositive: boolean })
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--gray-800)' }}>
-            {signal.name?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+            {safeName.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
           </span>
           <span style={{ fontSize: 12, fontWeight: 700, color, flexShrink: 0 }}>
-            {signal.weight > 0 ? '+' : ''}{signal.weight.toFixed(2)}
+            {safeWeight > 0 ? '+' : ''}{safeWeight.toFixed(2)}
           </span>
         </div>
         <p style={{ fontSize: 11, color: 'var(--gray-500)', margin: '3px 0 0', lineHeight: 1.4 }}>
-          {signal.evidence}
+          {safeEvidence}
         </p>
-        {signal.source && (
+        {safeSource && (
           <span style={{ fontSize: 10, color: 'var(--gray-400)', marginTop: 2, display: 'inline-block' }}>
-            Source: {signal.source}
+            Source: {safeSource}
           </span>
         )}
       </div>
     </div>
   )
 }
-
-// ── Utilities ────────────────────────────────────────────────────────────────
 
 function formatAge(isoString: string): string {
   const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000)

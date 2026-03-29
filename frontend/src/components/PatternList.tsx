@@ -10,7 +10,7 @@ export default function PatternList({ patterns }: Props) {
         <div key={i} className="text-xs text-gray-500 bg-gray-50
                                 rounded px-3 py-2">
           <span className="font-medium text-gray-700">{p.pattern}</span>
-          {' — '}{p.description}
+          {' - '}{p.description}
         </div>
       ))}
     </div>

@@ -1,5 +1,3 @@
-/* Growth Artha — App-level animation utilities */
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

@@ -1,11 +1,3 @@
-"""
-Tool definitions for all three agents.
-These are the function schemas Gemini uses for function calling.
-Each tool maps to an existing backend function — nothing new to build.
-"""
-
-# ── Data Agent tools ────────────────────────────────────────────────────────
-
 DATA_AGENT_TOOLS = [
     {
         "name": "fetch_stock_ohlc",
@@ -73,8 +65,6 @@ DATA_AGENT_TOOLS = [
     }
 ]
 
-# ── Signal Agent tools ───────────────────────────────────────────────────────
-
 SIGNAL_AGENT_TOOLS = [
     {
         "name": "detect_patterns",
@@ -133,8 +123,6 @@ SIGNAL_AGENT_TOOLS = [
         }
     }
 ]
-
-# ── Insight Agent tools ──────────────────────────────────────────────────────
 
 INSIGHT_AGENT_TOOLS = [
     {

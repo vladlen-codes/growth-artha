@@ -7,7 +7,7 @@ pandas-ta
 scipy
 requests
 python-dotenv
-google-generativeai
+google-genai
 openai
 pydantic
 sqlalchemy

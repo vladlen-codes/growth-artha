@@ -1,7 +1,3 @@
-"""
-Downloads the full NSE equity symbol list from NSE's official endpoint.
-Run once before the hackathon to get data/EQUITY_L.csv.
-"""
 import requests
 import pandas as pd
 from pathlib import Path

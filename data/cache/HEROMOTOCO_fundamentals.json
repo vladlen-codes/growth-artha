@@ -1,0 +1,1 @@
+{"symbol": "HEROMOTOCO", "fetched_at": "2026-03-29T00:03:34.160053", "signals": [{"name": "earnings_surprise_15", "evidence": "YoY growth strength: revenue +21.7%, net income +14.4%", "source": "Quarterly Results", "source_type": "quarterly_results", "taxonomy": "earnings_yoy", "confidence": 0.6, "details": {"revenue_yoy_pct": 21.71, "net_income_yoy_pct": 14.45}}]}

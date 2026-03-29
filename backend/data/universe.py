@@ -1,7 +1,3 @@
-"""
-Stock universe manager.
-Handles the full NSE equity list with intelligent tiering.
-"""
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -9,7 +5,6 @@ from datetime import datetime
 import time
 import yfinance as yf
 
-# ── Universe tiers ────────────────────────────────────────────────────────────
 TIER_1_NIFTY50 = [
     "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
     "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
@@ -40,10 +35,6 @@ TIER_2_NIFTY500_EXTRA = [
 
 
 def load_full_nse_universe() -> list:
-    """
-    Loads the complete NSE equity symbol list from local CSV.
-    Falls back to Nifty 500 if CSV not found.
-    """
     csv_path = Path("data/nse_all_symbols.csv")
 
     if csv_path.exists():
@@ -60,15 +51,6 @@ def load_full_nse_universe() -> list:
 
 
 def tier1_filter(ohlc_data: dict, min_volume: int = 100000) -> list:
-    """
-    Fast pre-screening filter — eliminates illiquid and inactive stocks.
-    Runs in seconds. Keeps only stocks worth deeper analysis.
-
-    Criteria:
-    - Average daily volume > 100,000 (liquid enough to trade)
-    - Has traded in last 5 days (not suspended)
-    - 52-week price range > 10% (not flatlined)
-    """
     qualified = []
 
     for symbol, df in ohlc_data.items():
@@ -95,19 +77,6 @@ def tier1_filter(ohlc_data: dict, min_volume: int = 100000) -> list:
 
 
 def momentum_prefilter(ohlc_data: dict, top_n: int = 300) -> list:
-    """
-    Ranks all stocks by a simple momentum score to find the most
-    interesting candidates for deep pattern analysis.
-
-    Momentum score = combination of:
-    - 1-month return
-    - 3-month return
-    - Volume ratio (recent vs average)
-    - Distance from 52-week high/low
-
-    Returns top N stocks by absolute momentum score.
-    This is how we get from 2700 stocks to 300 candidates.
-    """
     scores = []
 
     for symbol, df in ohlc_data.items():
@@ -145,24 +114,12 @@ def momentum_prefilter(ohlc_data: dict, top_n: int = 300) -> list:
     scores.sort(key=lambda x: x[1], reverse=True)
     return [s[0] for s in scores[:top_n]]
 
-
-# ── OHLC data fetching with caching ──────────────────────────────────────────
-
 CACHE_DIR = Path("data/cache")
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def fetch_ohlc_batch(symbols: list, period: str = "1y",
                      max_workers: int = 10) -> dict:
-    """
-    Fetches OHLC for a large list of symbols efficiently.
-
-    Strategy:
-    - Uses yfinance batch download (much faster than one-by-one)
-    - Caches each symbol separately
-    - Skips symbols with fresh cache (< 24h old)
-    - Returns whatever it can get — never crashes on missing data
-    """
     # Split into stale (need fetch) vs fresh (use cache)
     to_fetch = []
     results  = {}

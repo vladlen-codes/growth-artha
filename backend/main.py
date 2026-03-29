@@ -2,7 +2,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
-from backend.api import radar, stocks, portfolio, chat
+from backend.api import radar, stocks, portfolio, chat, video
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
@@ -44,6 +44,7 @@ app.include_router(radar.router,     prefix="/api/radar",     tags=["Radar"])
 app.include_router(stocks.router,    prefix="/api/stocks",    tags=["Stocks"])
 app.include_router(portfolio.router, prefix="/api/portfolio", tags=["Portfolio"])
 app.include_router(chat.router,      prefix="/api/chat",      tags=["Chat"])
+app.include_router(video.router,     prefix="/api/video",     tags=["Video"])
 
 @app.get("/")
 def root():

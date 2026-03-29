@@ -11,7 +11,7 @@ export function useNotifications() {
   const { getSymbols } = usePortfolioStore()
 
   useEffect(() => {
-    // Request permission on first load — before user hits Run Radar
+    // Request permission on first load - before user hits Run Radar
     requestNotificationPermission().then(setPermitted)
   }, [])
 
@@ -20,7 +20,7 @@ export function useNotifications() {
     if (!permitted) return
     notifyRadarComplete(result)
 
-    // Check exit radar for user's held stocks — notify immediately
+    // Check exit radar for user's held stocks - notify immediately
     const heldSymbols = getSymbols()
     const exitSignals = result.exit_radar || []
 

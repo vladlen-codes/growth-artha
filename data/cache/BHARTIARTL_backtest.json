@@ -1,0 +1,23 @@
+{
+  "52W High Breakout": {
+    "symbol": "BHARTIARTL",
+    "pattern": "52W High Breakout",
+    "forward_days": 20,
+    "expected_horizon_days": 20,
+    "instances": 129,
+    "win_rate": 0.581,
+    "win_rate_pct": 58.1,
+    "avg_return_pct": 1.85,
+    "median_move_pct": 1.42,
+    "p25_move_pct": -2.2,
+    "p75_move_pct": 5.57,
+    "avg_win_pct": 5.08,
+    "avg_loss_pct": -2.64,
+    "confidence_band": "high",
+    "instances_detail": [
+      {
+        "date": "2025-11-26",
+        "entry_price": 2126.8,
+        "exit_price": 2123.7,
+        "return_pct": -0.15,
+        "win": 

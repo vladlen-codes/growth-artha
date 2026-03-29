@@ -1,7 +1,3 @@
-"""
-Run this to find the 3 best stocks for your demo.
-Pick ones with high scores AND interesting pattern combinations.
-"""
 from backend.data.fetcher import fetch_all_ohlc, fetch_bulk_deals, NIFTY50
 from backend.patterns.detector import detect_patterns_all
 from backend.signals.scorer import score_all_signals

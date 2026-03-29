@@ -19,7 +19,7 @@ export default function StatsBar({
 }: Props) {
   const stats: StatItem[] = [
     { label: 'Universe',      value: totalScanned.toLocaleString('en-IN'),              accent: null    },
-    { label: 'Liquid stocks', value: (liquidStocks  ?? '—').toLocaleString(),            accent: null    },
+    { label: 'Liquid stocks', value: (liquidStocks  ?? '-').toLocaleString(),            accent: null    },
     { label: 'Analysed',      value: (analysedStocks ?? totalScanned).toLocaleString(),  accent: null    },
     { label: 'Signals found', value: totalSignals,                                       accent: null    },
     { label: 'Act now',       value: actCount,                                           accent: 'act'   },

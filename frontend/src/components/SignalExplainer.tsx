@@ -109,7 +109,7 @@ export default function SignalExplainer({ signal, explanation, loading }: Props)
           </div>
         ) : (
           <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-400">
-            AI analysis unavailable — run the radar to generate fresh insights.
+            AI analysis unavailable: run the radar to generate fresh insights.
           </div>
         )}
       </div>

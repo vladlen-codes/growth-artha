@@ -1,14 +1,3 @@
-"""
-Growth Artha Multi-Agent Orchestrator.
-
-Three specialised agents run in sequence:
-  1. DataAgent    — fetches all required data autonomously
-  2. SignalAgent  — detects patterns and scores convergence
-  3. InsightAgent — generates alert cards and portfolio brief
-
-Each agent uses Gemini function calling — the model decides
-what to call next based on what it finds. That's the agentic part.
-"""
 import json
 import time
 from datetime import datetime
@@ -21,14 +10,7 @@ from backend.agents.tools import (
 from backend.agents.executor import ToolExecutor
 from backend.data.fetcher import NIFTY50
 
-
-# ── Base Agent ───────────────────────────────────────────────────────────────
-
 class BaseAgent:
-    """
-    Base class for all Growth Artha agents.
-    Handles the Gemini function-calling loop.
-    """
     MAX_ITERATIONS = 10     # reduced to stay within free-tier rate limits
     MAX_RETRIES    = 3      # retries on 429 before giving up
 
@@ -44,10 +26,6 @@ class BaseAgent:
         self.reasoning_log: list = []
 
     def run(self, system_prompt: str, user_message: str) -> dict:
-        """
-        Runs the agent loop until Gemini stops calling tools.
-        Returns the final text response + full reasoning log.
-        """
         # Build initial history using the SDK's expected format
         history = []
         iterations = 0
@@ -120,7 +98,6 @@ class BaseAgent:
 
 
     def _build_gemini_tools(self):
-        """Convert tool dicts to Gemini function declarations."""
         declarations = []
         for tool in self.tools:
             declarations.append(
@@ -152,7 +129,6 @@ class BaseAgent:
         return [genai.protos.Tool(function_declarations=declarations)]
 
     def _extract_tool_calls(self, response) -> list:
-        """Extract function calls from Gemini response."""
         calls = []
         try:
             for part in response.candidates[0].content.parts:
@@ -171,9 +147,6 @@ class BaseAgent:
                  "message": message}
         self.reasoning_log.append(entry)
         print(f"  [{self.name}] {message}")
-
-
-# ── Specialised Agents ───────────────────────────────────────────────────────
 
 class DataAgent(BaseAgent):
     SYSTEM_PROMPT = """
@@ -295,15 +268,7 @@ Return a JSON object with:
 """
         return self.run(self.SYSTEM_PROMPT, message)
 
-
-# ── Master Orchestrator ──────────────────────────────────────────────────────
-
 class GrowthArthaOrchestrator:
-    """
-    Coordinates all three agents and assembles the final radar result.
-    This replaces the _run_radar_job function in radar.py.
-    """
-
     def __init__(self):
         self.executor = ToolExecutor()
         self.data_agent    = DataAgent(self.executor)
@@ -313,40 +278,26 @@ class GrowthArthaOrchestrator:
 
     def run(self, portfolio: list = [],
             symbols: list = None) -> dict:
-        """
-        Full agentic pipeline. Returns complete radar result
-        with audit trail attached.
-        """
         symbols = symbols or NIFTY50
         start   = datetime.now()
 
         print("\n=== Growth Artha Agentic Radar Starting ===\n")
-
-        # ── Phase 1: Data Agent ──────────────────────────────────────────────
-        print("Phase 1: Data Agent running...")
+        print("Data Agent running...")
         data_result = self.data_agent.run_data_collection(symbols)
         self.full_audit_log.extend(data_result.get("reasoning_log", []))
         time.sleep(1)   # rate limit between agents
-
-        # ── Phase 2: Signal Agent ────────────────────────────────────────────
-        print("\nPhase 2: Signal Agent running...")
+        print("\nSignal Agent running...")
         signal_result = self.signal_agent.run_signal_detection(
             symbols, portfolio
         )
         self.full_audit_log.extend(signal_result.get("reasoning_log", []))
-
-        # Parse top signals from Signal Agent response
         top_signals = self._parse_signals(signal_result["response"])
         time.sleep(1)
-
-        # ── Phase 3: Insight Agent ───────────────────────────────────────────
-        print("\nPhase 3: Insight Agent running...")
+        print("\nInsight Agent running...")
         insight_result = self.insight_agent.run_insight_generation(
             top_signals, portfolio
         )
         self.full_audit_log.extend(insight_result.get("reasoning_log", []))
-
-        # Parse final output
         final = self._parse_final(insight_result["response"], top_signals)
 
         elapsed = (datetime.now() - start).total_seconds()
@@ -367,7 +318,6 @@ class GrowthArthaOrchestrator:
         }
 
     def _parse_signals(self, response_text: str) -> list:
-        """Extract structured signal list from Signal Agent response."""
         try:
             # Try to find JSON in the response
             start = response_text.find("[")
@@ -383,7 +333,6 @@ class GrowthArthaOrchestrator:
         return signals[:10]
 
     def _parse_final(self, response_text: str, fallback_signals: list) -> dict:
-        """Extract final bucketed result from Insight Agent response."""
         try:
             start = response_text.find("{")
             end   = response_text.rfind("}") + 1
@@ -407,21 +356,11 @@ class GrowthArthaOrchestrator:
             "portfolio_brief":  ""
         }
 
-
-# ── Full Universe Scan (async entry point) ─────────────────────────────────
-
 async def run_full_universe(
     portfolio: list = [],
     max_tier2_stocks: int = 300,
     max_tier3_stocks: int = 30
 ) -> dict:
-    """
-    Full 4000+ stock scan using three-tier progressive filtering.
-
-    Tier 1: Load all NSE symbols, batch fetch OHLC, filter by liquidity
-    Tier 2: Momentum pre-filter → top 300 candidates for pattern detection
-    Tier 3: Full convergence scoring + Gemini on top 30
-    """
     from backend.data.universe import (
         load_full_nse_universe,
         tier1_filter,
@@ -436,22 +375,15 @@ async def run_full_universe(
     all_syms  = load_full_nse_universe()   # 2700+ symbols
 
     print(f"\n=== Full Universe Scan: {len(all_syms)} stocks ===")
-
-    # ── TIER 1: Batch fetch + liquidity filter ──────────────────────────────
     print("\nTier 1: Batch fetching OHLC...")
     ohlc_data = fetch_ohlc_batch(all_syms, period="1y")
     print(f"Got data for {len(ohlc_data)} stocks")
-
     liquid_syms = tier1_filter(ohlc_data)
     print(f"Tier 1 filter: {len(ohlc_data)} → {len(liquid_syms)} liquid stocks")
-
-    # ── TIER 2: Momentum pre-filter ─────────────────────────────────────────
     liquid_ohlc   = {s: ohlc_data[s] for s in liquid_syms if s in ohlc_data}
     tier2_syms    = momentum_prefilter(liquid_ohlc, top_n=max_tier2_stocks)
     tier2_ohlc    = {s: ohlc_data[s] for s in tier2_syms if s in ohlc_data}
     print(f"Tier 2 filter: {len(liquid_syms)} → {len(tier2_syms)} momentum candidates")
-
-    # ── TIER 3: Full signal analysis ─────────────────────────────────────────
     print("\nTier 3: Full pattern detection + scoring...")
     bulk_deals = fetch_bulk_deals()
     patterns   = detect_patterns_all(tier2_ohlc)
