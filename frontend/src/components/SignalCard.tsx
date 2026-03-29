@@ -48,9 +48,19 @@ export default function SignalCard({ signal, variant, onClick, index = 0 }: Prop
   const scoreWidth  = Math.min(Math.round(absScore * 100), 100)
   const cfg         = SCORE_CONFIG[variant]
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onClick()
+    }
+  }
+
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
+      onKeyDown={handleKeyDown}
       className="w-full text-left group"
       style={{
         display: 'flex',
@@ -64,10 +74,10 @@ export default function SignalCard({ signal, variant, onClick, index = 0 }: Prop
         animationDelay: `${index * 0.04}s`,
       }}
       onMouseEnter={e => {
-        (e.currentTarget as HTMLButtonElement).style.background = 'var(--gray-50)'
+        ;(e.currentTarget as HTMLDivElement).style.background = 'var(--gray-50)'
       }}
       onMouseLeave={e => {
-        (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+        ;(e.currentTarget as HTMLDivElement).style.background = 'transparent'
       }}
     >
       {/* Symbol + price */}
@@ -212,6 +222,6 @@ export default function SignalCard({ signal, variant, onClick, index = 0 }: Prop
       >
         →
       </div>
-    </button>
+    </div>
   )
 }

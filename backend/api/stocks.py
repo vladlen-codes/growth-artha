@@ -6,14 +6,8 @@ from backend.data.fetcher import fetch_ohlc, fetch_stock_info
 
 router = APIRouter()
 
-
-# ── IMPORTANT: /market/... routes MUST come before /{symbol}/... wildcards ──
-
 @router.get("/market/overview")
 def get_market_overview():
-    """
-    Live Nifty 50 index + top gainers + top losers.
-    """
     from backend.data.fetcher import (
         fetch_nifty_index_quote,
         fetch_top_gainers_losers
@@ -26,9 +20,6 @@ def get_market_overview():
         "losers":     gl["losers"],
         "updated_at": datetime.now().isoformat()
     }
-
-
-# ── Per-symbol routes ────────────────────────────────────────────────────────
 
 @router.get("/{symbol}/ohlc")
 def get_ohlc(symbol: str, days: int = 90):
@@ -55,6 +46,14 @@ def get_ohlc(symbol: str, days: int = 90):
 def get_stock_info(symbol: str):
     return fetch_stock_info(symbol.upper())
 
+@router.get("/{symbol}/backtest")
+def get_pattern_backtest(symbol: str):
+    from backend.patterns.backtester import backtest_symbol
+    return {
+        "symbol": symbol.upper(),
+        "patterns": backtest_symbol(symbol.upper())
+    }
+
 @router.get("/{symbol}/explain")
 def explain_signal(symbol: str):
     from backend.ai.gemini_client import generate_explanation
@@ -72,6 +71,5 @@ def get_sentiment(symbol: str, force_refresh: bool = False):
 
 @router.get("/{symbol}/price")
 def get_live_price(symbol: str):
-    """Real-time NSE price via nsetools, falls back to yfinance."""
     from backend.data.fetcher import fetch_live_quote
     return fetch_live_quote(symbol.upper())

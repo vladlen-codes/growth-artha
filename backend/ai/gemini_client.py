@@ -1,40 +1,74 @@
-import google.generativeai as genai
 import os
+from typing import Any
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
 _api_key = os.getenv("GEMINI_API_KEY")
-_model = None
+_provider: str = "none"
+_client: Any = None
 
-if _api_key:
+
+def _init_genai_client() -> None:
+    """Initialize modern google.genai SDK."""
+    global _provider, _client
+
+    if not _api_key:
+        print("Warning: GEMINI_API_KEY not set - AI cards will be unavailable")
+        return
+
+    # Required SDK: google.genai
     try:
-        genai.configure(api_key=_api_key)
-        _model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
-            generation_config={
-                "temperature": 0.3,
-                "max_output_tokens": 1024,
-            }
-        )
-    except Exception as e:
-        print(f"Gemini init failed: {e}")
-else:
-    print("Warning: GEMINI_API_KEY not set — AI cards will be unavailable")
+        from google import genai as genai_sdk  # type: ignore
 
-import time
+        _client = genai_sdk.Client(api_key=_api_key)
+        _provider = "google.genai"
+        return
+    except Exception as e:
+        print(f"Gemini init failed (google.genai): {e}")
+        _provider = "none"
+
+
+_init_genai_client()
+
+
+def _extract_text(response: Any) -> str:
+    text = getattr(response, "text", None)
+    if isinstance(text, str) and text.strip():
+        return text
+
+    candidates = getattr(response, "candidates", None)
+    if candidates and isinstance(candidates, list):
+        first = candidates[0]
+        content = getattr(first, "content", None)
+        parts = getattr(content, "parts", None) if content else None
+        if parts and isinstance(parts, list):
+            first_part = parts[0]
+            part_text = getattr(first_part, "text", None)
+            if isinstance(part_text, str) and part_text.strip():
+                return part_text
+
+    raise ValueError("Gemini response did not contain text")
 
 def _generate_with_retry(prompt: str) -> str:
-    """Helper to enforce rate limits (15 RPM) and fail fast on quota errors."""
-    if not _model:
+    if _provider == "none":
         raise ValueError("Model not configured")
     
     # Mandatory sleep to stay under 15 RPM (1 request per 4s)
     time.sleep(4)
     
     try:
-        response = _model.generate_content(prompt)
-        return response.text
+        if _provider == "google.genai":
+            response = _client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt,
+                config={
+                    "temperature": 0.3,
+                    "max_output_tokens": 1024,
+                },
+            )
+        return _extract_text(response)
     except Exception as e:
         error_str = str(e)
         # Fail fast on quota/auth errors - don't retry, let caller handle fallback
@@ -45,7 +79,7 @@ def _generate_with_retry(prompt: str) -> str:
         raise
 
 def generate_signal_card(signal_payload: dict) -> str | None:
-    if not _model:
+    if _provider == "none":
         return None
     try:
         prompt = f"""
@@ -53,7 +87,7 @@ You are Growth Artha, an AI investment research assistant for Indian retail inve
 You receive structured signal data about NSE-listed stocks and write clear, factual alert cards.
 
 STRICT RULES:
-- Never say "buy" or "sell" — use "historically this setup led to..."
+- Never say "buy" or "sell" - use "historically this setup led to..."
 - Always cite the data points you're using
 - Keep the card under 120 words
 - End with one "What to watch" line
@@ -69,7 +103,7 @@ Write the alert card now:
         return None
 
 def generate_explanation(symbol: str, signal_payload: dict) -> str | None:
-    if not _model:
+    if _provider == "none":
         return None
     try:
         prompt = f"""
@@ -91,8 +125,8 @@ SIGNAL DATA:
         return None
 
 def generate_portfolio_summary(portfolio: list, top_signals: list) -> str:
-    if not _model:
-        return "AI assistant is unavailable — GEMINI_API_KEY not configured."
+    if _provider == "none":
+        return "AI assistant is unavailable - GEMINI_API_KEY not configured."
     try:
         prompt = f"""
 You are Growth Artha. A user holds the following stocks:
@@ -117,8 +151,8 @@ Rules:
 
 
 def answer_chat_question(question: str, context: dict) -> str:
-    if not _model:
-        return "AI assistant is unavailable — GEMINI_API_KEY not configured."
+    if _provider == "none":
+        return "AI assistant is unavailable - GEMINI_API_KEY not configured."
     try:
         prompt = f"""
 You are Growth Artha, an AI research assistant for Indian retail investors on ET Markets.

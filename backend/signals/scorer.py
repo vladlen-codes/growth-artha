@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from backend.data.fundamentals import fetch_fundamental_signals_batch
 
 #  Signal weight table (transparent to users)
 # These are the exact weights shown in the Growth Artha document.
@@ -16,6 +17,15 @@ EVENT_WEIGHTS = {
     "breakout_52w":           0.50,
     "pledge_reduction":       0.45,
     "guidance_raise":         0.40,
+    "buyback_announcement":   0.40,
+    "contract_win":           0.38,
+    "capex_expansion":        0.34,
+    "debt_reduction":         0.30,
+    "credit_upgrade":         0.30,
+    "earnings_acceleration":  0.45,
+    "insider_buy_heavy":      0.75,
+    "mgmt_tone_improving":    0.36,
+    "regulatory_relief":      0.40,
     "volume_spike_bullish":   0.35,
     "support_hold":           0.30,
 
@@ -23,9 +33,19 @@ EVENT_WEIGHTS = {
     "promoter_sell_miss":    -0.85,
     "pledge_increase":       -0.70,
     "earnings_miss":         -0.60,
+    "earnings_deceleration": -0.45,
     "breakdown_support":     -0.55,
     "fii_block_deal_sell":   -0.50,
     "bearish_divergence":    -0.45,
+    "guidance_cut":          -0.45,
+    "contract_loss":         -0.42,
+    "capex_delay":           -0.35,
+    "regulatory_probe":      -0.50,
+    "credit_downgrade":      -0.42,
+    "insider_sell":          -0.45,
+    "insider_sell_heavy":    -0.75,
+    "mgmt_tone_deteriorating": -0.40,
+    "regulatory_risk_high":  -0.70,
     "volume_spike_bearish":  -0.35,
 }
 
@@ -47,12 +67,12 @@ PORTFOLIO_MULTIPLIER = {
     "none":     1.0,
 }
 
-# Convergence bonus — reward co-occurring signals
+# Convergence bonus reward co-occurring signals
 CONVERGENCE_BONUS = {
     1: 0.0,   # single signal, no bonus
     2: 0.08,  # two signals together
-    3: 0.15,  # three signals — strong conviction
-    4: 0.20,  # four+ signals — very strong
+    3: 0.15,  # three signals - strong conviction
+    4: 0.20,  # four+ signals - very strong
 }
 
 # In-memory store so /stocks/{symbol}/explain can access latest signals
@@ -63,12 +83,9 @@ def score_all_signals(
     ohlc_data: dict,
     bulk_deals: pd.DataFrame,
     patterns: dict,
-    portfolio: list = []
+    portfolio: list = [],
+    fundamental_events: dict | None = None,
 ) -> list:
-    """
-    Master scorer. Combines event signals + pattern signals for every stock.
-    Returns a sorted list of signal dicts, highest score first.
-    """
     global _latest_signals
     results = []
 
@@ -76,13 +93,20 @@ def score_all_signals(
     sector_map = _build_sector_map(ohlc_data)
     portfolio_sectors = _get_portfolio_sectors(portfolio, sector_map)
 
+    if fundamental_events is None:
+        try:
+            fundamental_events = fetch_fundamental_signals_batch(list(ohlc_data.keys()))
+        except Exception:
+            fundamental_events = {}
+
     for symbol in ohlc_data:
         df = ohlc_data[symbol]
         if len(df) < 30:
             continue
 
         # Step 1: collect all triggered signals for this stock
-        triggered_events   = _score_events(symbol, df, bulk_deals)
+        symbol_fundamental_events = fundamental_events.get(symbol, []) if isinstance(fundamental_events, dict) else []
+        triggered_events   = _score_events(symbol, df, bulk_deals, symbol_fundamental_events)
         triggered_patterns = _score_patterns(symbol, patterns)
 
         all_signals = triggered_events + triggered_patterns
@@ -134,16 +158,20 @@ def score_all_signals(
 
 
 def get_signal_for_symbol(symbol: str) -> dict | None:
-    """Used by /stocks/{symbol}/explain endpoint."""
     return _latest_signals.get(symbol)
-
 
 # Private helpers
 
-def _score_events(symbol: str, df: pd.DataFrame, bulk_deals: pd.DataFrame) -> list:
+def _score_events(
+    symbol: str,
+    df: pd.DataFrame,
+    bulk_deals: pd.DataFrame,
+    fundamental_signals: list | None = None,
+) -> list:
     signals = []
     close = df["Close"]
     volume = df["Volume"]
+    fundamental_signals = fundamental_signals or []
 
     # Bulk deal signals
     if not bulk_deals.empty and "symbol" in bulk_deals.columns:
@@ -156,7 +184,7 @@ def _score_events(symbol: str, df: pd.DataFrame, bulk_deals: pd.DataFrame) -> li
             client = str(deal.get("clientName", ""))
             qty = deal.get("quantity", 0)
 
-            # FII buying — strongest signal
+            # FII buying - strongest signal
             fii_keywords = ["vanguard", "blackrock", "fidelity", "government of",
                            "singapore", "norway", "abu dhabi", "temasek"]
             is_fii = any(kw in client.lower() for kw in fii_keywords)
@@ -228,25 +256,64 @@ def _score_events(symbol: str, df: pd.DataFrame, bulk_deals: pd.DataFrame) -> li
     # Earnings proxy (3-month return vs Nifty estimate)
     # Real version: pull from NSE quarterly results endpoint
     # This version: use 3-month price momentum as proxy (Only for Hackathon purpose)
-    ret_3m = (close.iloc[-1] - close.iloc[-63]) / close.iloc[-63] if len(close) >= 63 else 0
-    if ret_3m > 0.20:    # >20% in 3 months — likely earnings beat
+    has_real_earnings_signal = any(
+        fs.get("name") in ("earnings_surprise_15", "earnings_miss")
+        for fs in fundamental_signals if isinstance(fs, dict)
+    )
+    if not has_real_earnings_signal:
+        ret_3m = (close.iloc[-1] - close.iloc[-63]) / close.iloc[-63] if len(close) >= 63 else 0
+        if ret_3m > 0.20:    # >20% in 3 months - likely earnings beat
+            signals.append({
+                "name": "earnings_surprise_15",
+                "weight": EVENT_WEIGHTS["earnings_surprise_15"] * 0.8,  # discounted - proxy signal
+                "evidence": f"Price up {ret_3m*100:.1f}% over 3 months (momentum proxy for earnings beat - "
+                           f"check actual results for confirmation)",
+                "source": "Price Momentum Proxy"
+            })
+        elif ret_3m < -0.15:  # >15% drop - likely earnings miss
+            signals.append({
+                "name": "earnings_miss",
+                "weight": EVENT_WEIGHTS["earnings_miss"] * 0.8,  # discounted - proxy signal
+                "evidence": f"Price down {abs(ret_3m)*100:.1f}% over 3 months (momentum proxy - "
+                           f"verify earnings data before acting)",
+                "source": "Price Momentum Proxy"
+            })
+
+    # A1/A2: Inject filing and quarterly signals from cached fundamentals module.
+    for fs in fundamental_signals:
+        if not isinstance(fs, dict):
+            continue
+        name = fs.get("name")
+        if name not in EVENT_WEIGHTS:
+            continue
+        confidence = fs.get("confidence", 1.0)
+        try:
+            confidence = float(confidence)
+        except (TypeError, ValueError):
+            confidence = 1.0
+        # Keep confidence impact bounded to avoid destabilizing ranking.
+        confidence = max(0.7, min(1.2, confidence))
         signals.append({
-            "name": "earnings_surprise_15",
-            "weight": EVENT_WEIGHTS["earnings_surprise_15"] * 0.8,  # discounted — proxy signal
-            "evidence": f"Price up {ret_3m*100:.1f}% over 3 months (momentum proxy for earnings beat — "
-                       f"check actual results for confirmation)",
-            "source": "Price Momentum Proxy"
-        })
-    elif ret_3m < -0.15:  # >15% drop — likely earnings miss
-        signals.append({
-            "name": "earnings_miss",
-            "weight": EVENT_WEIGHTS["earnings_miss"] * 0.8,  # discounted — proxy signal
-            "evidence": f"Price down {abs(ret_3m)*100:.1f}% over 3 months (momentum proxy — "
-                       f"verify earnings data before acting)",
-            "source": "Price Momentum Proxy"
+            "name": name,
+            "weight": round(EVENT_WEIGHTS[name] * confidence, 3),
+            "evidence": fs.get("evidence", name),
+            "source": fs.get("source", "Fundamentals"),
+            "source_type": fs.get("source_type", "fundamentals"),
+            "taxonomy": fs.get("taxonomy", "fundamentals"),
+            "confidence": confidence,
+            "details": fs.get("details", {}),
         })
 
-    return signals
+    # Deduplicate exact repeated events by (name, evidence).
+    dedup = []
+    seen = set()
+    for s in signals:
+        key = (s.get("name"), s.get("evidence"))
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(s)
+    return dedup
 
 def _score_patterns(symbol: str, patterns: dict) -> list:
     signals = []
@@ -283,8 +350,27 @@ def _build_tags(signals: list) -> list:
         "volume_spike_bearish":  "Vol Spike",
         "earnings_surprise_15":  "Earnings Beat",
         "earnings_miss":         "Earnings Miss",
+        "earnings_acceleration": "Earnings Accel",
+        "earnings_deceleration": "Earnings Decel",
         "pledge_reduction":      "Pledge Down",
         "pledge_increase":       "Pledge Up",
+        "guidance_cut":          "Guidance Cut",
+        "buyback_announcement":  "Buyback",
+        "contract_win":          "Order Win",
+        "contract_loss":         "Order Loss",
+        "capex_expansion":       "Capex Up",
+        "capex_delay":           "Capex Delay",
+        "debt_reduction":        "Debt Down",
+        "regulatory_probe":      "Regulatory Risk",
+        "credit_upgrade":        "Rating Up",
+        "credit_downgrade":      "Rating Down",
+        "insider_buy_heavy":     "Insider Heavy Buy",
+        "insider_sell":          "Insider Sell",
+        "insider_sell_heavy":    "Insider Heavy Sell",
+        "mgmt_tone_improving":   "Mgmt Tone Up",
+        "mgmt_tone_deteriorating": "Mgmt Tone Down",
+        "regulatory_relief":     "Regulatory Relief",
+        "regulatory_risk_high":  "Regulatory High Risk",
     }
     tags = []
     for s in signals:

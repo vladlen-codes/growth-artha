@@ -1,26 +1,17 @@
-"""
-Executes tool calls requested by Gemini agents.
-Maps tool names → existing backend functions.
-Logs every call for the audit trail.
-"""
 import json
 from datetime import datetime
 from backend.data.fetcher import (
-    fetch_ohlc, fetch_all_ohlc, fetch_bulk_deals as _fetch_bulk_deals,
-    fetch_news_headlines as _fetch_headlines
+    fetch_ohlc, fetch_all_ohlc, fetch_bulk_deals as _fetch_bulk_deals
 )
 from backend.patterns.detector import detect_patterns
 from backend.patterns.backtester import backtest_pattern
 from backend.signals.scorer import score_all_signals, get_signal_for_symbol
-from backend.signals.sentiment import analyse_sentiment as _analyse_sentiment
-
+from backend.signals.sentiment import (
+    fetch_news_headlines as _fetch_headlines,
+    analyse_sentiment as _analyse_sentiment,
+)
 
 class ToolExecutor:
-    """
-    Executes tool calls and maintains a full audit log.
-    The log is returned with the final result — judges see every decision.
-    """
-
     def __init__(self):
         self.audit_log: list = []
         self._ohlc_cache: dict = {}
@@ -28,7 +19,6 @@ class ToolExecutor:
         self._patterns_cache: dict = {}
 
     def execute(self, tool_name: str, tool_args: dict) -> dict:
-        """Dispatch tool call to the right function. Log everything."""
         start = datetime.now()
 
         try:
@@ -42,7 +32,6 @@ class ToolExecutor:
 
         elapsed = (datetime.now() - start).total_seconds()
 
-        # Every tool call gets logged — this is your audit trail
         self.audit_log.append({
             "timestamp":  datetime.now().isoformat(),
             "tool":       tool_name,
@@ -52,11 +41,9 @@ class ToolExecutor:
             "error":      error,
             "result_summary": self._summarise(tool_name, result)
         })
-
         return result
 
     def _dispatch(self, tool_name: str, args: dict) -> dict:
-        # ── Data tools ───────────────────────────────────────────────────────
         if tool_name == "fetch_stock_ohlc":
             symbols = args.get("symbols", [])
             period  = args.get("period", "2y")
@@ -89,7 +76,6 @@ class ToolExecutor:
             return {"symbol": symbol, "count": len(headlines),
                     "headlines": headlines}
 
-        # ── Signal tools ─────────────────────────────────────────────────────
         if tool_name == "detect_patterns":
             symbol = args["symbol"]
             df = self._ohlc_cache.get(symbol)
@@ -125,7 +111,6 @@ class ToolExecutor:
             )
             return signals[0] if signals else {"symbol": symbol, "score": 0}
 
-        # ── Insight tools ────────────────────────────────────────────────────
         if tool_name == "generate_alert_card":
             from backend.ai.gemini_client import generate_signal_card
             card = generate_signal_card(args)
@@ -148,7 +133,6 @@ class ToolExecutor:
         raise ValueError(f"Unknown tool: {tool_name}")
 
     def _summarise(self, tool_name: str, result: dict) -> str:
-        """One-line summary of each tool result for the audit log."""
         if "error" in result:
             return f"ERROR: {result['error']}"
         summaries = {

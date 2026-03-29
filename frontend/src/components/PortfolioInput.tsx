@@ -70,7 +70,7 @@ export default function PortfolioInput() {
         ))}
         {holdings.length === 0 && (
           <span className="text-[12px] py-1" style={{ color: 'var(--gray-400)' }}>
-            No stocks added — signals will cover all Nifty 50
+            No stocks added: signals will cover all Nifty 50
           </span>
         )}
       </div>

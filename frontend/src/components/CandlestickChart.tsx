@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   createChart,
@@ -38,6 +38,7 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
   const chartRef    = useRef<HTMLDivElement>(null)
   const chartObj    = useRef<IChartApi | null>(null)
   const candleSeries = useRef<ISeriesApi<'Candlestick'> | null>(null)
+  const [chartInitFailed, setChartInitFailed] = useState(false)
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['ohlc', symbol],
@@ -45,58 +46,72 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
     staleTime: 1000 * 60 * 15,
   })
 
+  const normalizedPatterns = useMemo(
+    () => patterns.map(normalizePattern),
+    [patterns]
+  )
+
   // Initialise chart once
   useEffect(() => {
     if (!chartRef.current) return
+    let ro: ResizeObserver | null = null
+    let chart: IChartApi | null = null
 
-    const chart = createChart(chartRef.current, {
-      layout: {
-        background:  { type: ColorType.Solid, color: '#ffffff' },
-        textColor:   '#6b7280',
-        fontSize:    11,
-        fontFamily:  'Inter, system-ui, sans-serif',
-      },
-      grid: {
-        vertLines:   { color: '#f3f4f6' },
-        horzLines:   { color: '#f3f4f6' },
-      },
-      crosshair: {
-        vertLine:    { color: '#d1d5db', width: 1, style: 2 },
-        horzLine:    { color: '#d1d5db', width: 1, style: 2 },
-      },
-      rightPriceScale: { borderColor: '#f3f4f6' },
-      timeScale: {
-        borderColor:      '#f3f4f6',
-        timeVisible:      true,
-        secondsVisible:   false,
-      },
-      width:  chartRef.current.clientWidth,
-      height: 380,
-    })
+    try {
+      chart = createChart(chartRef.current, {
+        layout: {
+          background:  { type: ColorType.Solid, color: '#ffffff' },
+          textColor:   '#6b7280',
+          fontSize:    11,
+          fontFamily:  'Inter, system-ui, sans-serif',
+        },
+        grid: {
+          vertLines:   { color: '#f3f4f6' },
+          horzLines:   { color: '#f3f4f6' },
+        },
+        crosshair: {
+          vertLine:    { color: '#d1d5db', width: 1, style: 2 },
+          horzLine:    { color: '#d1d5db', width: 1, style: 2 },
+        },
+        rightPriceScale: { borderColor: '#f3f4f6' },
+        timeScale: {
+          borderColor:      '#f3f4f6',
+          timeVisible:      true,
+          secondsVisible:   false,
+        },
+        width:  chartRef.current.clientWidth,
+        height: 380,
+      })
 
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor:        '#1D9E75',
-      downColor:      '#E24B4A',
-      borderUpColor:  '#1D9E75',
-      borderDownColor:'#E24B4A',
-      wickUpColor:    '#1D9E75',
-      wickDownColor:  '#E24B4A',
-    })
+      const series = chart.addSeries(CandlestickSeries, {
+        upColor:        '#1D9E75',
+        downColor:      '#E24B4A',
+        borderUpColor:  '#1D9E75',
+        borderDownColor:'#E24B4A',
+        wickUpColor:    '#1D9E75',
+        wickDownColor:  '#E24B4A',
+      })
 
-    chartObj.current    = chart
-    candleSeries.current = series
+      chartObj.current = chart
+      candleSeries.current = series
+      setChartInitFailed(false)
 
-    // Resize observer — chart fills container width
-    const ro = new ResizeObserver(() => {
-      if (chartRef.current) {
-        chart.applyOptions({ width: chartRef.current.clientWidth })
-      }
-    })
-    ro.observe(chartRef.current)
+      // Resize observer - chart fills container width
+      ro = new ResizeObserver(() => {
+        if (chartRef.current && chart) {
+          chart.applyOptions({ width: chartRef.current.clientWidth })
+        }
+      })
+      ro.observe(chartRef.current)
+    } catch {
+      setChartInitFailed(true)
+      chartObj.current = null
+      candleSeries.current = null
+    }
 
     return () => {
-      ro.disconnect()
-      chart.remove()
+      if (ro) ro.disconnect()
+      if (chart) chart.remove()
     }
   }, [])
 
@@ -104,61 +119,75 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
   useEffect(() => {
     if (!data?.data || !candleSeries.current) return
 
-    const formatted = data.data.map((d: any) => ({
-      time:  d.time,
-      open:  d.open,
-      high:  d.high,
-      low:   d.low,
-      close: d.close,
-    }))
-
-    candleSeries.current.setData(formatted)
-
-    // Add pattern markers on the candles
-    if (patterns.length > 0) {
-      const markers = patterns
-        .filter(p => p.date)
-        .map(p => ({
-          time:     p.date,
-          position: p.pattern.toLowerCase().includes('top')
-                    || p.pattern.toLowerCase().includes('bearish')
-                    || p.pattern.toLowerCase().includes('resistance')
-            ? 'aboveBar' as const
-            : 'belowBar' as const,
-          color:    PATTERN_COLORS[p.pattern] || '#BA7517',
-          shape:    p.pattern.toLowerCase().includes('top')
-                    || p.pattern.toLowerCase().includes('bearish')
-            ? 'arrowDown' as const
-            : 'arrowUp' as const,
-          text:     p.pattern,
-          size:     1.5,
+    try {
+      const formatted = data.data
+        .filter((d: any) => d?.time != null)
+        .map((d: any) => ({
+          time:  d.time,
+          open:  Number(d.open),
+          high:  Number(d.high),
+          low:   Number(d.low),
+          close: Number(d.close),
         }))
-        // deduplicate by time+pattern
-        .filter((m, i, arr) =>
-          arr.findIndex(x => x.time === m.time && x.text === m.text) === i
+        .filter((d: any) =>
+          Number.isFinite(d.open)
+          && Number.isFinite(d.high)
+          && Number.isFinite(d.low)
+          && Number.isFinite(d.close)
         )
-        // sort by time (required by lightweight-charts)
-        .sort((a, b) => (a.time < b.time ? -1 : 1))
+        .sort((a: any, b: any) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
 
-      createSeriesMarkers(candleSeries.current, markers)
+      candleSeries.current.setData(formatted)
+
+      // Add pattern markers on the candles
+      if (normalizedPatterns.length > 0) {
+        const markers = normalizedPatterns
+          .filter(p => p?.date)
+          .map(p => ({
+            time:     p.date,
+            position: p.pattern.toLowerCase().includes('top')
+                      || p.pattern.toLowerCase().includes('bearish')
+                      || p.pattern.toLowerCase().includes('resistance')
+              ? 'aboveBar' as const
+              : 'belowBar' as const,
+            color:    PATTERN_COLORS[p.pattern] || '#BA7517',
+            shape:    p.pattern.toLowerCase().includes('top')
+                      || p.pattern.toLowerCase().includes('bearish')
+              ? 'arrowDown' as const
+              : 'arrowUp' as const,
+            text:     p.pattern,
+            size:     1.5,
+          }))
+          // deduplicate by time+pattern
+          .filter((m, i, arr) =>
+            arr.findIndex(x => x.time === m.time && x.text === m.text) === i
+          )
+          // sort by time (required by lightweight-charts)
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+
+        createSeriesMarkers(candleSeries.current, markers)
+      }
+
+      // Fit chart to show last 90 days by default
+      chartObj.current?.timeScale().fitContent()
+    } catch {
+      // Keep UI responsive even if chart data shape is bad for a symbol.
     }
 
-    // Fit chart to show last 90 days by default
-    chartObj.current?.timeScale().fitContent()
-
-  }, [data, patterns])
+  }, [data, normalizedPatterns])
 
   if (isLoading) return <ChartSkeleton />
+  if (chartInitFailed) return <ChartError symbol={symbol} />
   if (isError)   return <ChartError symbol={symbol} />
 
   return (
     <div>
       {/* Pattern legend */}
-      {patterns.length > 0 && (
+      {normalizedPatterns.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-4">
-          {patterns.map(p => (
+          {normalizedPatterns.map((p, i) => (
             <div
-              key={`${p.pattern}-${p.date}`}
+              key={`${p.pattern}-${p.date ?? i}`}
               className="flex items-center gap-1.5 text-xs text-gray-600
                          bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-full"
             >
@@ -179,12 +208,12 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
       <div ref={chartRef} className="rounded-lg overflow-hidden" />
 
       {/* Pattern details below chart */}
-      {patterns.length > 0 && (
+      {normalizedPatterns.length > 0 && (
         <div className="mt-4 space-y-2">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
             Detected patterns
           </p>
-          {patterns.map((p, i) => (
+          {normalizedPatterns.map((p, i) => (
             <PatternRow key={i} pattern={p} />
           ))}
         </div>
@@ -193,11 +222,74 @@ export default function CandlestickChart({ symbol, patterns }: Props) {
   )
 }
 
+function normalizePattern(raw: any): Pattern {
+  const detail = raw?.pattern_detail ?? raw
+  const patternName = toPatternName(detail?.pattern)
+    ?? toPatternName(raw?.pattern)
+    ?? toPatternName(raw?.name)
+    ?? 'Unknown Pattern'
+
+  const date =
+    (typeof detail?.date === 'string' && detail.date)
+    || (typeof raw?.date === 'string' && raw.date)
+    || 'N/A'
+
+  const price = toFiniteNumber(detail?.price) ?? toFiniteNumber(raw?.price) ?? 0
+  const confidence = clamp01(
+    toFiniteNumber(detail?.confidence)
+    ?? toFiniteNumber(raw?.confidence)
+    ?? 0
+  )
+  const description =
+    (typeof detail?.description === 'string' && detail.description.trim() !== '' && detail.description)
+    || (typeof raw?.description === 'string' && raw.description.trim() !== '' && raw.description)
+    || (typeof raw?.evidence === 'string' && raw.evidence.trim() !== '' && raw.evidence)
+    || 'No description available.'
+
+  return {
+    pattern: patternName,
+    date,
+    price,
+    confidence,
+    description,
+  }
+}
+
+function toPatternName(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  if (trimmed.startsWith('pattern_')) {
+    return trimmed
+      .replace(/^pattern_/, '')
+      .split('_')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ')
+  }
+  return trimmed
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
 function PatternRow({ pattern }: { pattern: Pattern }) {
-  const color = PATTERN_COLORS[pattern.pattern] || '#BA7517'
-  const isBullish = !pattern.pattern.toLowerCase().includes('bearish')
-                 && !pattern.pattern.toLowerCase().includes('top')
-                 && !pattern.pattern.toLowerCase().includes('resistance')
+  const name = pattern.pattern
+  const color = PATTERN_COLORS[name] || '#BA7517'
+  const isBullish = !name.toLowerCase().includes('bearish')
+                 && !name.toLowerCase().includes('top')
+                 && !name.toLowerCase().includes('resistance')
+  const confidencePct = Math.round(clamp01(pattern.confidence) * 100)
+  const dateText = typeof pattern?.date === 'string' ? pattern.date : 'N/A'
+  const descriptionText = typeof pattern?.description === 'string' && pattern.description.trim() !== ''
+    ? pattern.description
+    : 'No description available.'
 
   return (
     <div className="flex items-start gap-3 bg-gray-50 rounded-lg p-3">
@@ -208,7 +300,7 @@ function PatternRow({ pattern }: { pattern: Pattern }) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-800">
-            {pattern.pattern}
+            {name}
           </span>
           <span
             className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
@@ -219,13 +311,13 @@ function PatternRow({ pattern }: { pattern: Pattern }) {
           >
             {isBullish ? 'Bullish' : 'Bearish'}
           </span>
-          <span className="text-xs text-gray-400">{pattern.date}</span>
+          <span className="text-xs text-gray-400">{dateText}</span>
         </div>
-        <p className="text-xs text-gray-500 mt-0.5">{pattern.description}</p>
+        <p className="text-xs text-gray-500 mt-0.5">{descriptionText}</p>
       </div>
       <div className="text-right flex-shrink-0">
         <div className="text-xs font-medium text-gray-700">
-          {Math.round(pattern.confidence * 100)}%
+          {confidencePct}%
         </div>
         <div className="text-[10px] text-gray-400">confidence</div>
       </div>

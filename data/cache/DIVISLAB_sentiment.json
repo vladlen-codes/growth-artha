@@ -1,0 +1,18 @@
+{
+  "symbol": "DIVISLAB",
+  "company": "Divis Laboratories",
+  "sentiment_score": 0.0,
+  "sentiment_label": "Neutral",
+  "summary": "No recent qualifying headlines were found for this symbol right now. Sentiment is marked neutral until fresh coverage appears.",
+  "key_themes": [
+    "No Recent Coverage"
+  ],
+  "top_headline": null,
+  "risk_flags": [],
+  "catalysts": [],
+  "headlines": [],
+  "headline_count": 0,
+  "analysed_at": "2026-03-28T20:12:05.709043",
+  "from_cache": false,
+  "analysis_mode": "no_headlines_neutral"
+}

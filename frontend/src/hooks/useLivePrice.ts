@@ -11,7 +11,15 @@ export function useLivePrice(symbol: string, intervalSeconds = 30) {
     const fetch = async () => {
       try {
         const res = await api.get(`/stocks/${symbol}/price`)
-        setData(res.data)
+        const raw = res.data || {}
+        setData({
+          symbol: raw.symbol,
+          price: typeof raw.last_price === 'number' ? raw.last_price : raw.price ?? null,
+          changePct: typeof raw.change_pct === 'number' ? raw.change_pct : raw.changePct ?? null,
+          updatedAt: raw.updated_at ?? raw.updatedAt ?? null,
+          isLive: raw.is_live ?? false,
+          source: raw.source ?? null,
+        })
       } catch {
         // keep last known data on failure
       } finally {
@@ -20,7 +28,7 @@ export function useLivePrice(symbol: string, intervalSeconds = 30) {
     }
 
     fetch()
-    // 30s polling — live enough for a signal product
+    // 30s polling live enough for a signal product
     const interval = setInterval(fetch, intervalSeconds * 1000)
     return () => clearInterval(interval)
   }, [symbol, intervalSeconds])

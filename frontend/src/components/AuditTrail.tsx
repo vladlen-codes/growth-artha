@@ -13,6 +13,9 @@ interface AuditData {
   tool_calls?:      ToolCall[]
   audit_log?:       any[]
   elapsed_seconds?: number
+  using_cached_data?: boolean
+  using_non_ai_fallback?: boolean
+  fallback_reason?: string
 }
 
 interface Props { jobId: string }
@@ -20,14 +23,15 @@ interface Props { jobId: string }
 export default function AuditTrail({ jobId }: Props) {
   const [open, setOpen] = useState(false)
 
-  const { data, isLoading } = useQuery<AuditData>({
+  const { data, isLoading, isError } = useQuery<AuditData>({
     queryKey: ['audit', jobId],
-    queryFn:  () => api.get(`/api/radar/audit/${jobId}`).then(r => r.data),
+    queryFn:  () => api.get(`/radar/audit/${jobId}`).then(r => r.data),
     enabled:  !!jobId && open,
     staleTime: Infinity,
   })
 
   const toolCalls = data?.tool_calls ?? []
+  const auditLog = data?.audit_log ?? []
   const successCount = toolCalls.filter(c => c.status === 'success').length
   const errorCount   = toolCalls.filter(c => c.status === 'error').length
 
@@ -78,7 +82,7 @@ export default function AuditTrail({ jobId }: Props) {
           Agent reasoning trail
         </span>
         <span className="text-[12px]" style={{ color: 'var(--gray-400)' }}>
-          — every decision the AI agents made
+          - every decision the AI agents made
         </span>
 
         {/* Summary badges */}
@@ -123,12 +127,37 @@ export default function AuditTrail({ jobId }: Props) {
             >
               Loading agent log…
             </div>
+          ) : isError ? (
+            <div
+              className="px-5 py-6 text-center text-[12px]"
+              style={{ color: 'var(--red-dark)' }}
+            >
+              Could not load the audit trail for this scan.
+            </div>
           ) : toolCalls.length === 0 ? (
             <div
               className="px-5 py-6 text-center text-[12px]"
               style={{ color: 'var(--gray-400)' }}
             >
-              No tool calls recorded for this scan.
+              <div>No tool calls recorded for this scan.</div>
+              {data?.using_cached_data && (
+                <div className="mt-1">This result came from cached scan output.</div>
+              )}
+              {data?.using_non_ai_fallback && (
+                <div className="mt-1">This run used the non-AI fallback pipeline.</div>
+              )}
+              {data?.fallback_reason && (
+                <div className="mt-2" style={{ color: 'var(--gray-500)' }}>
+                  Reason: {data.fallback_reason}
+                </div>
+              )}
+              {auditLog.length > 0 && (
+                <div className="mt-3 text-left text-[11px]" style={{ color: 'var(--gray-500)' }}>
+                  {auditLog.slice(0, 4).map((entry, idx) => (
+                    <div key={idx}>- {entry?.message || 'Pipeline step executed'}</div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <div>

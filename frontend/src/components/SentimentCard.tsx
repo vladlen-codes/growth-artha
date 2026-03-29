@@ -7,7 +7,7 @@ export default function SentimentCard({ symbol }: Props) {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['sentiment', symbol],
     queryFn:  () => api.get(`/stocks/${symbol}/sentiment`).then(r => r.data),
-    staleTime: 1000 * 60 * 60 * 4,   // 4 hours — matches backend cache
+    staleTime: 1000 * 60 * 60 * 4,   // 4 hours - matches backend cache
   })
 
   if (isLoading) return <SentimentSkeleton />
@@ -169,8 +169,6 @@ export default function SentimentCard({ symbol }: Props) {
     </div>
   )
 }
-
-// ── Skeleton / error states ────────────────────────────────────────────────
 
 function SentimentSkeleton() {
   return (

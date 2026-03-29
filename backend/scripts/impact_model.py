@@ -1,8 +1,3 @@
-"""
-Computes the two impact metrics for the submission:
-1. Back-tested signal performance vs Nifty 50
-2. Event filtering efficiency (1000+ → 5-10)
-"""
 import pandas as pd
 import numpy as np
 from backend.data.fetcher import fetch_all_ohlc, fetch_bulk_deals, NIFTY50
@@ -10,8 +5,6 @@ from backend.patterns.detector import detect_patterns_all
 from backend.signals.scorer import score_all_signals
 
 print("Running impact model...\n")
-
-# ── 1. Back-test: top-decile signals vs Nifty ──────────────────────────────
 
 ohlc     = fetch_all_ohlc(NIFTY50)
 deals    = fetch_bulk_deals()
@@ -64,8 +57,6 @@ if forward_returns:
           f"{avg_signal_return:.1f}% avg 20-day return vs "
           f"Nifty {avg_nifty_return:.1f}% over the same period'")
 
-# ── 2. Efficiency metric ───────────────────────────────────────────────────
-
 # Count total daily events across the universe
 total_bulk_deals  = len(deals) if not deals.empty else 0
 total_stocks      = len(NIFTY50)
@@ -85,12 +76,10 @@ print(f"\nPitch line: 'Growth Artha filters {est_total_events}+ daily events "
       f"into {output_signals} prioritised signals — "
       f"saving ~{est_total_events*5//60} hours of manual research'")
 
-# ── 3. Addressable market ──────────────────────────────────────────────────
-
 print("\n=== ADDRESSABLE MARKET ===")
 demat_accounts   = 21_300_000_00  # 21.3 crore
-active_fo        = 20_000_000     # ~2 crore active F&O traders
-avg_annual_loss  = 125_000        # ₹1.25L per year
+active_fo        = 20_000_000     # 2 crore active F&O traders
+avg_annual_loss  = 125_000        # 1.25L per year
 adoption_1pct    = active_fo * 0.01
 loss_reduction   = 0.10           # 10% reduction in losses
 impact           = adoption_1pct * avg_annual_loss * loss_reduction

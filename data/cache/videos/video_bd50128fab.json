@@ -1,0 +1,42 @@
+{
+  "created_at": "2026-03-29T01:48:12.696173",
+  "duration_seconds": 45,
+  "scan_timestamp": "2026-03-29T01:44:38.202871",
+  "storyboard": {
+    "template": "daily_wrap",
+    "headline": "Growth Artha Daily Wrap",
+    "scenes": [
+      {
+        "title": "Market Pulse",
+        "narration": "Today's radar scanned 47 stocks and found 47 actionable signals.",
+        "visual": "Title card with total scanned and signal counts",
+        "seconds": 11
+      },
+      {
+        "title": "Top Opportunities",
+        "narration": "Act bucket leaders: INFY, BHARTIARTL, MARUTI.",
+        "visual": "Top 3 Act symbols with score bars",
+        "seconds": 11
+      },
+      {
+        "title": "Watchlist Setup",
+        "narration": "Watch names: AXISBANK, TCS, NTPC.",
+        "visual": "Watch bucket cards with trend arrows",
+        "seconds": 11
+      },
+      {
+        "title": "Risk Radar",
+        "narration": "Exit-risk names: BRITANNIA, SBILIFE, HINDUNILVR. Portfolio overlaps: TCS.",
+        "visual": "Risk list and portfolio overlap highlights",
+        "seconds": 12
+      }
+    ]
+  },
+  "render_manifest": {
+    "status": "planned",
+    "format": "mp4",
+    "resolution": "1080x1920",
+    "audio": "tts_narration_pending",
+    "notes": "Phase 2 initial pipeline: storyboard + render manifest only"
+  }
+}

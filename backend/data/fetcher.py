@@ -10,7 +10,7 @@ from pathlib import Path
 
 _nse_client = NseTools()
 
-# Nifty 50 hardcoded list — demo default
+# Nifty 50 hardcoded list - demo default
 NIFTY50 = [
     "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
     "HINDUNILVR", "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK",
@@ -25,9 +25,6 @@ NIFTY50 = [
 ]
 
 UNIVERSE = NIFTY50
-
-
-# ── Live quote ────────────────────────────────────────────────────────────────
 
 def fetch_live_quote(symbol: str) -> dict:
     try:
@@ -61,12 +58,11 @@ def fetch_live_quote(symbol: str) -> dict:
             "updated_at":   datetime.now().isoformat(),
         }
     except Exception as e:
-        print(f"nsetools failed for {symbol}: {e} — falling back to yfinance")
+        print(f"nsetools failed for {symbol}: {e} - falling back to yfinance")
         return _fetch_live_quote_fallback(symbol)
 
 
 def _fetch_live_quote_fallback(symbol: str) -> dict:
-    """yfinance fallback — 15-min delayed but always works."""
     try:
         ticker = yf.Ticker(f"{symbol}.NS")
         info   = ticker.fast_info
@@ -124,7 +120,7 @@ def fetch_nifty_index_quote() -> dict:
             "updated_at": datetime.now().isoformat(),
         }
     except Exception as e:
-        print(f"Nifty index quote failed: {e} — trying yfinance")
+        print(f"Nifty index quote failed: {e} - trying yfinance")
         return _fetch_nifty_yfinance_fallback()
 
 
@@ -146,11 +142,7 @@ def _fetch_nifty_yfinance_fallback() -> dict:
     except Exception as e:
         return {"index": "NIFTY 50", "error": str(e)}
 
-
-# ── OHLC data ─────────────────────────────────────────────────────────────────
-
 def fetch_ohlc(symbol: str, period: str = "1y") -> pd.DataFrame:
-    """Fetch OHLC data for a single symbol via yfinance."""
     try:
         ticker = yf.Ticker(f"{symbol}.NS")
         df = ticker.history(period=period)
@@ -164,7 +156,6 @@ def fetch_ohlc(symbol: str, period: str = "1y") -> pd.DataFrame:
 
 
 def fetch_all_ohlc(symbols: list, period: str = "1y") -> dict:
-    """Fetch OHLC for a list of symbols sequentially."""
     results = {}
     for symbol in symbols:
         df = fetch_ohlc(symbol, period)
@@ -174,11 +165,6 @@ def fetch_all_ohlc(symbols: list, period: str = "1y") -> dict:
 
 
 def fetch_ohlc_batch(symbols: list, period: str = "1y") -> dict:
-    """
-    Batch-fetch OHLC using yfinance group download for speed.
-    Falls back to sequential fetch if batch fails.
-    Used by the Full Universe (All NSE) scan path.
-    """
     try:
         tickers_str = " ".join(f"{s}.NS" for s in symbols)
         raw = yf.download(
@@ -205,22 +191,21 @@ def fetch_ohlc_batch(symbols: list, period: str = "1y") -> dict:
         if results:
             return results
     except Exception as e:
-        print(f"Batch OHLC download failed: {e} — falling back to sequential")
+        print(f"Batch OHLC download failed: {e} - falling back to sequential")
 
     # Fallback to sequential
     return fetch_all_ohlc(symbols, period)
 
 
 def fetch_stock_info(symbol: str) -> dict:
-    """Fetch fundamental info from yfinance."""
     try:
         ticker = yf.Ticker(f"{symbol}.NS")
         info = ticker.info
         return {
             "symbol":         symbol,
             "name":           info.get("longName", symbol),
-            "sector":         info.get("sector", "—"),
-            "industry":       info.get("industry", "—"),
+            "sector":         info.get("sector", "-"),
+            "industry":       info.get("industry", "-"),
             "market_cap":     info.get("marketCap", 0),
             "pe_ratio":       info.get("trailingPE", 0),
             "pb_ratio":       info.get("priceToBook", 0),
@@ -231,9 +216,6 @@ def fetch_stock_info(symbol: str) -> dict:
         }
     except Exception as e:
         return {"symbol": symbol, "error": str(e)}
-
-
-# ── Bulk Deals ────────────────────────────────────────────────────────────────
 
 _NSE_BULK_DEALS_URL = "https://archives.nseindia.com/archives/equities/bns/NSE_BULKDEAL.csv"
 _BULK_DEALS_HEADERS = {
@@ -247,11 +229,6 @@ _BULK_DEALS_HEADERS = {
 
 
 def fetch_bulk_deals() -> pd.DataFrame:
-    """
-    Fetch today's NSE bulk deals from the public CSV archive.
-    Returns a DataFrame with columns: symbol, clientName, dealType, quantity, price.
-    Falls back to empty DataFrame gracefully if NSE blocks the request.
-    """
     try:
         resp = requests.get(
             _NSE_BULK_DEALS_URL,
@@ -262,7 +239,7 @@ def fetch_bulk_deals() -> pd.DataFrame:
             raise ValueError(f"HTTP {resp.status_code}")
 
         df = pd.read_csv(io.StringIO(resp.text))
-        # Normalise column names — NSE CSV has inconsistent spacing
+        # Normalise column names - NSE CSV has inconsistent spacing
         df.columns = [c.strip().lower().replace(" ", "_") for c in df.columns]
 
         # Map to canonical column names used by scorer.py
@@ -284,22 +261,15 @@ def fetch_bulk_deals() -> pd.DataFrame:
         return df
 
     except Exception as e:
-        print(f"fetch_bulk_deals failed ({e}) — signals will run without bulk deal data")
+        print(f"fetch_bulk_deals failed ({e}) - signals will run without bulk deal data")
         return pd.DataFrame()
 
-
-# ── Nifty 500 ────────────────────────────────────────────────────────────────
-
 def get_nifty500_symbols() -> list:
-    """
-    Fetches live Nifty 500 constituent list from NSE.
-    Falls back to Nifty 50 if fetch fails.
-    """
     try:
         stocks = _nse_client.get_stocks_in_index("NIFTY 500")
         if stocks and len(stocks) > 50:
             print(f"Nifty 500 loaded: {len(stocks)} stocks")
             return stocks
     except Exception as e:
-        print(f"Nifty 500 fetch failed: {e} — using Nifty 50")
+        print(f"Nifty 500 fetch failed: {e} - using Nifty 50")
     return NIFTY50

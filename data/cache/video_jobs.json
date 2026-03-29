@@ -1,0 +1,241 @@
+{
+  "video_9e66cd5836": {
+    "job_id": "video_9e66cd5836",
+    "status": "done",
+    "created_at": "2026-03-28T23:56:09.620840",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 40,
+      "portfolio": [
+        "RELIANCE",
+        "INFY"
+      ],
+      "title": "Smoke JSON",
+      "render_mode": "json"
+    },
+    "title": "Smoke JSON",
+    "started_at": "2026-03-28T23:56:09.623814",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "json",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_9e66cd5836.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_9e66cd5836/download",
+    "finished_at": "2026-03-28T23:56:09.648015",
+    "error": null
+  },
+  "video_21d3ff7548": {
+    "job_id": "video_21d3ff7548",
+    "status": "done",
+    "created_at": "2026-03-29T00:00:59.417181",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "COALINDIA",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "auto"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T00:00:59.422496",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "auto",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_21d3ff7548.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_21d3ff7548/download",
+    "finished_at": "2026-03-29T00:00:59.433151",
+    "error": null
+  },
+  "video_89b6f8f4ca": {
+    "job_id": "video_89b6f8f4ca",
+    "status": "error",
+    "created_at": "2026-03-29T00:01:46.964606",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "COALINDIA",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "mp4"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T00:01:46.969064",
+    "attempt_count": 2,
+    "max_attempts": 2,
+    "render_mode": "mp4",
+    "rendered_mode": null,
+    "artifact_path": null,
+    "artifact_format": null,
+    "download_url": null,
+    "finished_at": "2026-03-29T00:01:48.986189",
+    "error": "ffmpeg is not available on this host",
+    "last_error_at": "2026-03-29T00:01:48.986208"
+  },
+  "video_9efa0b37a0": {
+    "job_id": "video_9efa0b37a0",
+    "status": "done",
+    "created_at": "2026-03-29T00:01:58.707806",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "COALINDIA",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "auto"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T00:01:58.709446",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "auto",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_9efa0b37a0.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_9efa0b37a0/download",
+    "finished_at": "2026-03-29T00:01:58.710927",
+    "error": null
+  },
+  "video_a92b6c1abb": {
+    "job_id": "video_a92b6c1abb",
+    "status": "done",
+    "created_at": "2026-03-29T01:48:07.334284",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "json"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T01:48:07.337519",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "json",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_a92b6c1abb.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_a92b6c1abb/download",
+    "finished_at": "2026-03-29T01:48:07.339083",
+    "error": null
+  },
+  "video_bd50128fab": {
+    "job_id": "video_bd50128fab",
+    "status": "done",
+    "created_at": "2026-03-29T01:48:12.693554",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "json"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T01:48:12.695248",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "json",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_bd50128fab.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_bd50128fab/download",
+    "finished_at": "2026-03-29T01:48:12.696575",
+    "error": null
+  },
+  "video_2e3c4325da": {
+    "job_id": "video_2e3c4325da",
+    "status": "done",
+    "created_at": "2026-03-29T01:55:57.756899",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "json"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T01:55:57.764207",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "json",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_2e3c4325da.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_2e3c4325da/download",
+    "finished_at": "2026-03-29T01:55:57.766649",
+    "error": null
+  },
+  "video_85f52c4ea0": {
+    "job_id": "video_85f52c4ea0",
+    "status": "done",
+    "created_at": "2026-03-29T02:02:01.359681",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "json"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T02:02:01.362554",
+    "attempt_count": 1,
+    "max_attempts": 2,
+    "render_mode": "json",
+    "rendered_mode": "json",
+    "artifact_path": "data/cache/videos/video_85f52c4ea0.json",
+    "artifact_format": "json",
+    "download_url": "/api/video/jobs/video_85f52c4ea0/download",
+    "finished_at": "2026-03-29T02:02:01.365052",
+    "error": null
+  },
+  "video_b47bfdf609": {
+    "job_id": "video_b47bfdf609",
+    "status": "error",
+    "created_at": "2026-03-29T02:27:42.520909",
+    "request": {
+      "template": "daily_wrap",
+      "duration_seconds": 45,
+      "portfolio": [
+        "HDFC",
+        "TCS"
+      ],
+      "title": "Dashboard daily_wrap render",
+      "render_mode": "mp4"
+    },
+    "title": "Dashboard daily_wrap render",
+    "started_at": "2026-03-29T02:27:42.526276",
+    "attempt_count": 2,
+    "max_attempts": 2,
+    "render_mode": "mp4",
+    "rendered_mode": null,
+    "artifact_path": null,
+    "artifact_format": null,
+    "download_url": null,
+    "finished_at": "2026-03-29T02:27:44.545781",
+    "error": "ffmpeg is not available on this host",
+    "last_error_at": "2026-03-29T02:27:44.545793"
+  }
+}
